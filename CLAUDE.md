@@ -349,3 +349,136 @@ pnpm db:seed
 - [shadcn/ui Documentation](https://ui.shadcn.com/)
 - [TanStack Query Docs](https://tanstack.com/query)
 - [TanStack Router Docs](https://tanstack.com/router)
+
+---
+
+## Specialized Sub-Agents
+
+Claude Code can spawn specialized sub-agents for complex tasks. This section documents custom agents tailored to Situation Monitor's unique requirements, plus built-in agents to leverage.
+
+### Custom Project Agents
+
+#### intelligence-analysis-expert
+**Purpose**: Domain expertise for JP 5-0 doctrine and intelligence analysis concepts.
+
+**When to Use**:
+- Implementing PMESII-PT analysis features
+- Building threat assessment matrix functionality
+- Designing Center of Gravity (CoG) analysis workflows
+- Creating intelligence collection management (PIRs, NAIs)
+- Implementing tripwire/indicator monitoring systems
+- Domain-specific data modeling and validation
+
+**Knowledge Areas**:
+- JP 5-0 Joint Planning doctrine terminology and processes
+- PMESII-PT environmental analysis framework structure
+- Threat assessment methodologies (probability × impact matrices)
+- Center of Gravity analysis (CC/CR/CV relationships)
+- Intelligence cycle and collection management concepts
+- Early warning indicators and tripwire logic
+
+---
+
+#### tactical-visualization-expert
+**Purpose**: D3.js data visualization and Mapbox/Leaflet geospatial features with tactical ops-center aesthetic.
+
+**When to Use**:
+- Creating threat heat maps and risk matrices
+- Building timeline/Gantt visualizations for operations
+- Implementing geospatial mapping with NAI overlays
+- Designing network/relationship graphs for CoG analysis
+- Building dashboard chart components
+- Applying tactical styling to data displays
+
+**Knowledge Areas**:
+- D3.js for data-driven SVG visualizations
+- Mapbox GL JS / Leaflet integration patterns
+- Heat map and matrix visualization techniques
+- Force-directed graphs for relationship mapping
+- Responsive chart design with dark themes
+- Animation and transition best practices
+
+---
+
+#### rag-pipeline-expert
+**Purpose**: RAG implementation with pgvector and LLM integration for AI-assisted analysis.
+
+**When to Use**:
+- Implementing document embedding and chunking strategies
+- Building semantic search for intelligence documents
+- Designing pgvector schemas and similarity queries
+- Creating LLM prompts for PMESII-PT analysis assistance
+- Optimizing context retrieval for analysis tasks
+- Integrating Claude/OpenAI APIs for AI features
+
+**Knowledge Areas**:
+- pgvector extension setup and query optimization
+- Embedding model selection and configuration
+- Document chunking strategies for intelligence reports
+- Retrieval-Augmented Generation design patterns
+- Claude and OpenAI API best practices
+- Prompt engineering for analytical tasks
+
+---
+
+#### ops-center-ui-expert
+**Purpose**: Tactical dark theme UI patterns and ops-center aesthetics per the design system.
+
+**When to Use**:
+- Styling components with the Ops-Center Dark theme
+- Implementing scanline/CRT overlay effects
+- Building monospace data displays for situation boards
+- Ensuring high-contrast accessibility in dark UI
+- Designing alert/warning visual states
+- Creating dashboard layout patterns
+
+**Knowledge Areas**:
+- Tailwind CSS dark theme configuration
+- shadcn/ui component customization and theming
+- CSS effects (scanlines, glow, gradients, animations)
+- Accessibility considerations for low-light interfaces
+- Military/tactical UI conventions and patterns
+- Status indicator and alert design systems
+
+---
+
+### Built-in Agents to Leverage
+
+| Agent | Use For |
+|-------|---------|
+| `frontend-developer-designer` | React components, TanStack Query/Router, shadcn/ui, Tailwind CSS, state management |
+| `node-developer` | Backend API with NestJS/Hono, PostgreSQL schemas, TypeScript, AWS infrastructure |
+| `Explore` | Codebase exploration, finding files, understanding project structure |
+| `Plan` | Architecture decisions, implementation planning, breaking down complex features |
+
+---
+
+### Usage Examples
+
+**PMESII-PT form with AI assistance**:
+```
+Use intelligence-analysis-expert to understand PMESII-PT domain requirements,
+then frontend-developer-designer to implement the React form components,
+then rag-pipeline-expert to add AI-assisted analysis suggestions.
+```
+
+**Threat assessment heat map**:
+```
+Use intelligence-analysis-expert for probability×impact methodology,
+then tactical-visualization-expert to build the D3.js heat map,
+then ops-center-ui-expert to apply tactical styling.
+```
+
+**Geospatial NAI display**:
+```
+Use intelligence-analysis-expert for NAI concepts and data structure,
+then tactical-visualization-expert for Mapbox integration,
+then ops-center-ui-expert for overlay styling and legend design.
+```
+
+**Document search with RAG**:
+```
+Use rag-pipeline-expert for embedding strategy and pgvector setup,
+then node-developer for API endpoints,
+then frontend-developer-designer for search UI components.
+```
