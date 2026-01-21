@@ -11,10 +11,16 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "tsx src/db/seed.ts",
+    "db:seed:dev": "NODE_ENV=development tsx src/db/seed.ts",
+    "db:seed:test": "NODE_ENV=test tsx src/db/seed.ts",
+    "db:reset": "pnpm db:migrate && pnpm db:seed",
+    "db:fresh": "drizzle-kit push && pnpm db:seed"
   },
   "dependencies": {
     "@hono/node-server": "^1.12.0",
+    "dotenv": "^16.4.0",
     "drizzle-orm": "^0.32.0",
     "hono": "^4.5.0",
     "postgres": "^3.4.0",
