@@ -10,6 +10,11 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  Command,
+  Building2,
+  Network,
+  GitCompare,
+  FileText,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -25,6 +30,14 @@ const navItems = [
   { icon: Target, label: 'Threats', href: '/threats' },
   { icon: Radio, label: 'Intelligence', href: '/intel' },
   { icon: Bell, label: 'Alerts', href: '/alerts' },
+];
+
+const strategicDashboards = [
+  { icon: Command, label: 'Executive', href: '/dashboards/executive' },
+  { icon: Building2, label: 'Political', href: '/dashboards/political' },
+  { icon: Network, label: 'Alliances', href: '/dashboards/alliances' },
+  { icon: GitCompare, label: 'Scenarios', href: '/dashboards/scenarios' },
+  { icon: FileText, label: 'Synthesis', href: '/dashboards/synthesis' },
 ];
 
 export function Sidebar() {
@@ -56,6 +69,59 @@ export function Sidebar() {
         <nav className="flex-1 py-4 overflow-y-auto">
           <ul className="space-y-1 px-2">
             {navItems.map((item) => {
+              const isActive = currentPath.startsWith(item.href);
+              const Icon = item.icon;
+
+              const linkContent = (
+                <Link
+                  to={item.href}
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors',
+                    'hover:bg-secondary',
+                    isActive && 'bg-primary/10 text-primary glow-green'
+                  )}
+                >
+                  <Icon className={cn('w-5 h-5 shrink-0', isActive && 'text-primary')} />
+                  {!collapsed && (
+                    <span
+                      className={cn(
+                        'text-sm',
+                        isActive ? 'text-primary font-medium' : 'text-muted-foreground'
+                      )}
+                    >
+                      {item.label}
+                    </span>
+                  )}
+                </Link>
+              );
+
+              return (
+                <li key={item.href}>
+                  {collapsed ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
+                      <TooltipContent side="right" className="bg-popover border-border">
+                        {item.label}
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    linkContent
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+
+          {/* Strategic Dashboards Section */}
+          {!collapsed && (
+            <div className="mt-4 px-4">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Strategic Dashboards
+              </span>
+            </div>
+          )}
+          <ul className="space-y-1 px-2 mt-2">
+            {strategicDashboards.map((item) => {
               const isActive = currentPath.startsWith(item.href);
               const Icon = item.icon;
 

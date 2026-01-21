@@ -25,6 +25,11 @@ import { Route as AppCommandRouteImport } from './routes/_app.command'
 import { Route as AppAssessmentsRouteImport } from './routes/_app.assessments'
 import { Route as AppAlertsRouteImport } from './routes/_app.alerts'
 import { Route as AppProjectsProjectIdRouteImport } from './routes/_app.projects.$projectId'
+import { Route as AppDashboardsSynthesisRouteImport } from './routes/_app.dashboards.synthesis'
+import { Route as AppDashboardsScenariosRouteImport } from './routes/_app.dashboards.scenarios'
+import { Route as AppDashboardsPoliticalRouteImport } from './routes/_app.dashboards.political'
+import { Route as AppDashboardsExecutiveRouteImport } from './routes/_app.dashboards.executive'
+import { Route as AppDashboardsAlliancesRouteImport } from './routes/_app.dashboards.alliances'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/_auth',
@@ -104,6 +109,31 @@ const AppProjectsProjectIdRoute = AppProjectsProjectIdRouteImport.update({
   path: '/$projectId',
   getParentRoute: () => AppProjectsRoute,
 } as any)
+const AppDashboardsSynthesisRoute = AppDashboardsSynthesisRouteImport.update({
+  id: '/dashboards/synthesis',
+  path: '/dashboards/synthesis',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDashboardsScenariosRoute = AppDashboardsScenariosRouteImport.update({
+  id: '/dashboards/scenarios',
+  path: '/dashboards/scenarios',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDashboardsPoliticalRoute = AppDashboardsPoliticalRouteImport.update({
+  id: '/dashboards/political',
+  path: '/dashboards/political',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDashboardsExecutiveRoute = AppDashboardsExecutiveRouteImport.update({
+  id: '/dashboards/executive',
+  path: '/dashboards/executive',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDashboardsAlliancesRoute = AppDashboardsAlliancesRouteImport.update({
+  id: '/dashboards/alliances',
+  path: '/dashboards/alliances',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -119,6 +149,11 @@ export interface FileRoutesByFullPath {
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
+  '/dashboards/alliances': typeof AppDashboardsAlliancesRoute
+  '/dashboards/executive': typeof AppDashboardsExecutiveRoute
+  '/dashboards/political': typeof AppDashboardsPoliticalRoute
+  '/dashboards/scenarios': typeof AppDashboardsScenariosRoute
+  '/dashboards/synthesis': typeof AppDashboardsSynthesisRoute
   '/projects/$projectId': typeof AppProjectsProjectIdRoute
 }
 export interface FileRoutesByTo {
@@ -135,6 +170,11 @@ export interface FileRoutesByTo {
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
+  '/dashboards/alliances': typeof AppDashboardsAlliancesRoute
+  '/dashboards/executive': typeof AppDashboardsExecutiveRoute
+  '/dashboards/political': typeof AppDashboardsPoliticalRoute
+  '/dashboards/scenarios': typeof AppDashboardsScenariosRoute
+  '/dashboards/synthesis': typeof AppDashboardsSynthesisRoute
   '/projects/$projectId': typeof AppProjectsProjectIdRoute
 }
 export interface FileRoutesById {
@@ -154,6 +194,11 @@ export interface FileRoutesById {
   '/_auth/forgot-password': typeof AuthForgotPasswordRoute
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/register': typeof AuthRegisterRoute
+  '/_app/dashboards/alliances': typeof AppDashboardsAlliancesRoute
+  '/_app/dashboards/executive': typeof AppDashboardsExecutiveRoute
+  '/_app/dashboards/political': typeof AppDashboardsPoliticalRoute
+  '/_app/dashboards/scenarios': typeof AppDashboardsScenariosRoute
+  '/_app/dashboards/synthesis': typeof AppDashboardsSynthesisRoute
   '/_app/projects/$projectId': typeof AppProjectsProjectIdRoute
 }
 export interface FileRouteTypes {
@@ -172,6 +217,11 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/register'
+    | '/dashboards/alliances'
+    | '/dashboards/executive'
+    | '/dashboards/political'
+    | '/dashboards/scenarios'
+    | '/dashboards/synthesis'
     | '/projects/$projectId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -188,6 +238,11 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/register'
+    | '/dashboards/alliances'
+    | '/dashboards/executive'
+    | '/dashboards/political'
+    | '/dashboards/scenarios'
+    | '/dashboards/synthesis'
     | '/projects/$projectId'
   id:
     | '__root__'
@@ -206,6 +261,11 @@ export interface FileRouteTypes {
     | '/_auth/forgot-password'
     | '/_auth/login'
     | '/_auth/register'
+    | '/_app/dashboards/alliances'
+    | '/_app/dashboards/executive'
+    | '/_app/dashboards/political'
+    | '/_app/dashboards/scenarios'
+    | '/_app/dashboards/synthesis'
     | '/_app/projects/$projectId'
   fileRoutesById: FileRoutesById
 }
@@ -329,6 +389,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppProjectsProjectIdRouteImport
       parentRoute: typeof AppProjectsRoute
     }
+    '/_app/dashboards/synthesis': {
+      id: '/_app/dashboards/synthesis'
+      path: '/dashboards/synthesis'
+      fullPath: '/dashboards/synthesis'
+      preLoaderRoute: typeof AppDashboardsSynthesisRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/dashboards/scenarios': {
+      id: '/_app/dashboards/scenarios'
+      path: '/dashboards/scenarios'
+      fullPath: '/dashboards/scenarios'
+      preLoaderRoute: typeof AppDashboardsScenariosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/dashboards/political': {
+      id: '/_app/dashboards/political'
+      path: '/dashboards/political'
+      fullPath: '/dashboards/political'
+      preLoaderRoute: typeof AppDashboardsPoliticalRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/dashboards/executive': {
+      id: '/_app/dashboards/executive'
+      path: '/dashboards/executive'
+      fullPath: '/dashboards/executive'
+      preLoaderRoute: typeof AppDashboardsExecutiveRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/dashboards/alliances': {
+      id: '/_app/dashboards/alliances'
+      path: '/dashboards/alliances'
+      fullPath: '/dashboards/alliances'
+      preLoaderRoute: typeof AppDashboardsAlliancesRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -354,6 +449,11 @@ interface AppRouteChildren {
   AppProjectsRoute: typeof AppProjectsRouteWithChildren
   AppSettingsRoute: typeof AppSettingsRoute
   AppThreatsRoute: typeof AppThreatsRoute
+  AppDashboardsAlliancesRoute: typeof AppDashboardsAlliancesRoute
+  AppDashboardsExecutiveRoute: typeof AppDashboardsExecutiveRoute
+  AppDashboardsPoliticalRoute: typeof AppDashboardsPoliticalRoute
+  AppDashboardsScenariosRoute: typeof AppDashboardsScenariosRoute
+  AppDashboardsSynthesisRoute: typeof AppDashboardsSynthesisRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -366,6 +466,11 @@ const AppRouteChildren: AppRouteChildren = {
   AppProjectsRoute: AppProjectsRouteWithChildren,
   AppSettingsRoute: AppSettingsRoute,
   AppThreatsRoute: AppThreatsRoute,
+  AppDashboardsAlliancesRoute: AppDashboardsAlliancesRoute,
+  AppDashboardsExecutiveRoute: AppDashboardsExecutiveRoute,
+  AppDashboardsPoliticalRoute: AppDashboardsPoliticalRoute,
+  AppDashboardsScenariosRoute: AppDashboardsScenariosRoute,
+  AppDashboardsSynthesisRoute: AppDashboardsSynthesisRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
