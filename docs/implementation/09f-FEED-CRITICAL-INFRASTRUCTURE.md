@@ -30,7 +30,7 @@ The system tracks incidents across all 16 CISA-defined sectors:
 | **Healthcare & Public Health** | Hospitals, labs, pharmaceutical | HHS, CDC, news |
 | **Information Technology** | Software, hardware, cloud providers | Status pages, BGP, news |
 | **Nuclear** | Nuclear plants, waste facilities | NRC, FIRMS |
-| **Transportation** | Airports, ports, rail, highways | FAA, USCG, FRA, FHWA |
+| **Transportation** | Airports, ports, rail, highways | FAA, USCG, FRA, FHWA, DOT Cameras |
 | **Water & Wastewater** | Treatment plants, distribution | EPA SDWIS, state data |
 
 ---
@@ -51,7 +51,13 @@ The system tracks incidents across all 16 CISA-defined sectors:
 │  │ VIIRS/MOD  │ │  EPA, FAA) │ │  Twitter)  │ │  BGP, FCC) │ │  OSM, EIA) │   │
 │  └─────┬──────┘ └─────┬──────┘ └─────┬──────┘ └─────┬──────┘ └─────┬──────┘   │
 │        │              │              │              │              │           │
-│        └──────────────┴──────────────┴──────────────┴──────────────┘           │
+│  ┌─────┴──────┐ ┌─────┴──────┐                                                 │
+│  │    DOT     │ │  Citizen   │   (Crowdsourced & Traffic Layers)               │
+│  │  Traffic   │ │    App     │                                                  │
+│  │  Cameras   │ │  Incidents │                                                  │
+│  └─────┬──────┘ └─────┬──────┘                                                 │
+│        │              │                                                         │
+│        └──────────────┴──────────────────────────────────────────┘             │
 │                                      │                                          │
 │                                      ▼                                          │
 │  INGESTION LAYER                                                                │
@@ -138,6 +144,38 @@ The system tracks incidents across all 16 CISA-defined sectors:
 | **BGP Stream** | Internet routing | Network disruptions |
 | **Status Pages** | Cloud/SaaS providers | Service status |
 | **PowerOutage.us** | US utilities | Power outages by county |
+
+### DOT Traffic Cameras
+| Source | Coverage | Data Type | Update Frequency |
+|--------|----------|-----------|------------------|
+| **State DOT APIs** | Varies by state | Camera images, status | 1-5 minutes |
+| **511 Systems** | Major metros | Traffic flow, incidents | Real-time |
+| **CCTV Aggregators** | National | Multi-state feeds | 1-10 minutes |
+
+**Primary State DOT Sources:**
+- **Caltrans** (California): ~1,500 cameras via CWWP2
+- **NYDOT** (New York): 511NY API with ~800 cameras
+- **TxDOT** (Texas): DriveTexas API with ~1,200 cameras
+- **FDOT** (Florida): FL511 API with ~1,000 cameras
+- **PennDOT** (Pennsylvania): 511PA with ~900 cameras
+- **IDOT** (Illinois): GettingAroundIllinois API
+
+### Citizen App Crowdsourced Data
+| Source | Coverage | Data Type | Update Frequency |
+|--------|----------|-----------|------------------|
+| **Citizen API** | Major US metros | Incident reports | Real-time streaming |
+| **Police Scanner** | Audio-derived | Dispatch transcripts | Near real-time |
+| **User Reports** | Crowdsourced | Photos, videos, text | Real-time |
+
+**Incident Categories:**
+- Police activity (arrests, pursuits, standoffs)
+- Fire/EMS responses
+- Traffic accidents
+- Crimes in progress
+- Hazmat/gas leaks
+- Protests/demonstrations
+- Missing persons
+- Weather emergencies
 
 ### Facility Databases
 | Source | Coverage | Facility Types |
@@ -311,6 +349,8 @@ export type IncidentSource =
   | 'status_page'
   | 'power_outage'
   | 'scanner'
+  | 'dot_camera'
+  | 'citizen_app'
   | 'manual';
 
 /**
@@ -363,6 +403,115 @@ export interface SatelliteFire {
   satellite: string;
   dayNight: 'D' | 'N';
   version: string;
+}
+
+/**
+ * DOT Traffic Camera
+ */
+export interface DOTCamera {
+  id: string;
+  name: string;
+  location: {
+    lat: number;
+    lng: number;
+  };
+  route?: string;           // Highway/road name (e.g., "I-95", "US-101")
+  direction?: string;       // N, S, E, W, NB, SB, etc.
+  milepost?: number;
+  state: string;
+  source: string;           // State DOT identifier (e.g., "caltrans", "nydot")
+  imageUrl: string;         // Current image URL
+  streamUrl?: string;       // Video stream URL (if available)
+  lastUpdated: Date;
+  status: 'online' | 'offline' | 'unknown';
+  metadata?: {
+    county?: string;
+    city?: string;
+    roadCondition?: string;
+    weatherCondition?: string;
+  };
+}
+
+/**
+ * DOT Camera status with optional detected conditions
+ */
+export interface DOTCameraStatus {
+  cameraId: string;
+  timestamp: Date;
+  status: 'online' | 'offline' | 'degraded';
+  detectedConditions?: {
+    congestion?: 'none' | 'light' | 'moderate' | 'heavy' | 'standstill';
+    visibility?: 'clear' | 'reduced' | 'poor';
+    weather?: 'clear' | 'rain' | 'snow' | 'fog' | 'smoke';
+    incident?: boolean;
+    construction?: boolean;
+  };
+  imageHash?: string;       // For change detection
+}
+
+/**
+ * Citizen App incident report
+ */
+export type CitizenIncidentCategory =
+  | 'police_activity'
+  | 'fire'
+  | 'ems_medical'
+  | 'traffic_accident'
+  | 'crime'
+  | 'hazmat'
+  | 'protest_demonstration'
+  | 'missing_person'
+  | 'weather_emergency'
+  | 'suspicious_activity'
+  | 'shooting'
+  | 'assault'
+  | 'robbery'
+  | 'burglary'
+  | 'other';
+
+export type CitizenIncidentSeverity = 'low' | 'medium' | 'high' | 'critical';
+
+export interface CitizenIncident {
+  id: string;
+  title: string;
+  description?: string;
+  category: CitizenIncidentCategory;
+  severity: CitizenIncidentSeverity;
+  location: {
+    lat: number;
+    lng: number;
+    address?: string;
+    neighborhood?: string;
+    city?: string;
+    state?: string;
+  };
+  timestamp: Date;
+  updatedAt: Date;
+  status: 'active' | 'resolved' | 'unverified';
+
+  // Engagement metrics
+  viewCount?: number;
+  commentCount?: number;
+  updateCount?: number;
+
+  // Media
+  hasVideo?: boolean;
+  hasPhoto?: boolean;
+  hasAudio?: boolean;
+  mediaUrls?: string[];
+
+  // Source info
+  sourceType: 'scanner' | 'user_report' | 'news' | 'official';
+  isVerified: boolean;
+  confidence: number;        // 0-1 based on corroboration
+
+  // Related data
+  policeUnits?: number;
+  fireUnits?: number;
+  emsUnits?: number;
+
+  // Geofence/notification radius
+  notifyRadius?: number;     // meters
 }
 
 /**
@@ -794,6 +943,731 @@ export class PowerOutageAdapter extends BaseFeedAdapter {
     if (outage.customersAffected >= 10000) return 'moderate';
     return 'minor';
   }
+}
+```
+
+---
+
+## DOT Traffic Camera Adapter
+
+**File: `apps/api/src/feeds/adapters/traffic/dot-camera.adapter.ts`**
+```typescript
+import { BaseFeedAdapter, type FeedConfig } from '../../adapter.interface';
+import type { DOTCamera, DOTCameraStatus } from '../../types/critical-infrastructure.types';
+
+/**
+ * State DOT API configurations
+ * Each state has different API formats and authentication requirements
+ */
+interface StateDOTConfig {
+  name: string;
+  state: string;
+  baseUrl: string;
+  format: 'json' | 'xml' | 'geojson';
+  authType: 'none' | 'apiKey' | 'oauth';
+  refreshInterval: number; // seconds
+}
+
+const STATE_DOT_CONFIGS: StateDOTConfig[] = [
+  {
+    name: 'Caltrans',
+    state: 'CA',
+    baseUrl: 'https://cwwp2.dot.ca.gov/data/d1/cctv/',
+    format: 'xml',
+    authType: 'none',
+    refreshInterval: 300,
+  },
+  {
+    name: 'NYDOT',
+    state: 'NY',
+    baseUrl: 'https://511ny.org/api/getimages',
+    format: 'json',
+    authType: 'apiKey',
+    refreshInterval: 60,
+  },
+  {
+    name: 'TxDOT',
+    state: 'TX',
+    baseUrl: 'https://api.drivetexas.org/cctv',
+    format: 'json',
+    authType: 'apiKey',
+    refreshInterval: 120,
+  },
+  {
+    name: 'FDOT',
+    state: 'FL',
+    baseUrl: 'https://fl511.com/api/cameras',
+    format: 'json',
+    authType: 'none',
+    refreshInterval: 180,
+  },
+  {
+    name: 'PennDOT',
+    state: 'PA',
+    baseUrl: 'https://511pa.com/api/cameras',
+    format: 'json',
+    authType: 'apiKey',
+    refreshInterval: 120,
+  },
+  {
+    name: 'IDOT',
+    state: 'IL',
+    baseUrl: 'https://www.gettingaroundillinois.com/api/cameras',
+    format: 'geojson',
+    authType: 'none',
+    refreshInterval: 300,
+  },
+];
+
+/**
+ * DOT Traffic Camera adapter
+ * Aggregates camera feeds from multiple state DOT systems
+ */
+export class DOTCameraAdapter extends BaseFeedAdapter {
+  name = 'DOT Traffic Cameras';
+  type = 'traffic_camera';
+
+  private apiKeys: Map<string, string> = new Map();
+  private enabledStates: string[] = [];
+
+  async initialize(config: FeedConfig): Promise<void> {
+    await super.initialize(config);
+
+    // Load API keys from config
+    const keys = config.options?.apiKeys as Record<string, string> || {};
+    Object.entries(keys).forEach(([state, key]) => {
+      this.apiKeys.set(state, key);
+    });
+
+    // Configure which states to fetch
+    this.enabledStates = (config.options?.states as string[]) ||
+      STATE_DOT_CONFIGS.map(c => c.state);
+  }
+
+  /**
+   * Fetch cameras from all configured state DOTs
+   */
+  async fetchCameras(): Promise<DOTCamera[]> {
+    const allCameras: DOTCamera[] = [];
+
+    const configs = STATE_DOT_CONFIGS.filter(c =>
+      this.enabledStates.includes(c.state)
+    );
+
+    const results = await Promise.allSettled(
+      configs.map(config => this.fetchStateCameras(config))
+    );
+
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        allCameras.push(...result.value);
+      } else {
+        console.error('[DOT Camera] Fetch failed:', result.reason);
+      }
+    }
+
+    return allCameras;
+  }
+
+  private async fetchStateCameras(config: StateDOTConfig): Promise<DOTCamera[]> {
+    const headers: Record<string, string> = {
+      'Accept': 'application/json',
+    };
+
+    if (config.authType === 'apiKey') {
+      const apiKey = this.apiKeys.get(config.state);
+      if (!apiKey) {
+        console.warn(`[DOT Camera] No API key for ${config.state}, skipping`);
+        return [];
+      }
+      headers['Authorization'] = `Bearer ${apiKey}`;
+    }
+
+    const response = await fetch(config.baseUrl, { headers });
+
+    if (!response.ok) {
+      throw new Error(`${config.name} API error: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+
+    return this.parseResponse(data, config);
+  }
+
+  private parseResponse(data: any, config: StateDOTConfig): DOTCamera[] {
+    // Each state has different response formats
+    switch (config.state) {
+      case 'CA':
+        return this.parseCaltrans(data);
+      case 'NY':
+        return this.parseNYDOT(data);
+      case 'TX':
+        return this.parseTxDOT(data);
+      case 'FL':
+        return this.parseFDOT(data);
+      case 'PA':
+        return this.parsePennDOT(data);
+      case 'IL':
+        return this.parseIDOT(data);
+      default:
+        return this.parseGeneric(data, config);
+    }
+  }
+
+  private parseCaltrans(data: any): DOTCamera[] {
+    // Caltrans CWWP2 XML format
+    const cameras: DOTCamera[] = [];
+    const items = data.cctv || [];
+
+    for (const item of items) {
+      cameras.push({
+        id: `caltrans-${item.id}`,
+        name: item.name || item.location || 'Unknown',
+        location: {
+          lat: parseFloat(item.latitude),
+          lng: parseFloat(item.longitude),
+        },
+        route: item.route,
+        direction: item.direction,
+        milepost: item.postmile ? parseFloat(item.postmile) : undefined,
+        state: 'CA',
+        source: 'caltrans',
+        imageUrl: item.imageUrl || item.currentImageUrl,
+        streamUrl: item.streamUrl,
+        lastUpdated: new Date(),
+        status: item.status === 'active' ? 'online' : 'offline',
+        metadata: {
+          county: item.county,
+          city: item.city,
+        },
+      });
+    }
+
+    return cameras;
+  }
+
+  private parseNYDOT(data: any): DOTCamera[] {
+    return (data.cameras || []).map((item: any) => ({
+      id: `nydot-${item.id}`,
+      name: item.description || item.name,
+      location: {
+        lat: item.latitude,
+        lng: item.longitude,
+      },
+      route: item.roadway,
+      direction: item.direction,
+      state: 'NY',
+      source: 'nydot',
+      imageUrl: item.url,
+      lastUpdated: new Date(item.lastUpdated || Date.now()),
+      status: item.disabled ? 'offline' : 'online',
+      metadata: {
+        county: item.county,
+      },
+    }));
+  }
+
+  private parseTxDOT(data: any): DOTCamera[] {
+    return (data.features || data.cameras || []).map((item: any) => ({
+      id: `txdot-${item.properties?.id || item.id}`,
+      name: item.properties?.name || item.name,
+      location: {
+        lat: item.geometry?.coordinates?.[1] || item.latitude,
+        lng: item.geometry?.coordinates?.[0] || item.longitude,
+      },
+      route: item.properties?.route || item.route,
+      direction: item.properties?.direction || item.direction,
+      state: 'TX',
+      source: 'txdot',
+      imageUrl: item.properties?.imageUrl || item.imageUrl,
+      lastUpdated: new Date(),
+      status: 'online',
+    }));
+  }
+
+  private parseFDOT(data: any): DOTCamera[] {
+    return (data.cameras || []).map((item: any) => ({
+      id: `fdot-${item.cameraId}`,
+      name: item.name || item.description,
+      location: {
+        lat: item.lat,
+        lng: item.lon,
+      },
+      route: item.roadway,
+      state: 'FL',
+      source: 'fdot',
+      imageUrl: item.imageUrl,
+      streamUrl: item.videoUrl,
+      lastUpdated: new Date(item.timestamp || Date.now()),
+      status: item.active ? 'online' : 'offline',
+    }));
+  }
+
+  private parsePennDOT(data: any): DOTCamera[] {
+    return (data.cameras || []).map((item: any) => ({
+      id: `penndot-${item.id}`,
+      name: item.name,
+      location: {
+        lat: item.latitude,
+        lng: item.longitude,
+      },
+      route: item.route,
+      direction: item.direction,
+      milepost: item.mileMarker,
+      state: 'PA',
+      source: 'penndot',
+      imageUrl: item.imageUrl,
+      lastUpdated: new Date(),
+      status: 'online',
+      metadata: {
+        county: item.county,
+      },
+    }));
+  }
+
+  private parseIDOT(data: any): DOTCamera[] {
+    // GeoJSON format
+    return (data.features || []).map((feature: any) => ({
+      id: `idot-${feature.properties.id}`,
+      name: feature.properties.name || feature.properties.description,
+      location: {
+        lat: feature.geometry.coordinates[1],
+        lng: feature.geometry.coordinates[0],
+      },
+      route: feature.properties.route,
+      direction: feature.properties.direction,
+      state: 'IL',
+      source: 'idot',
+      imageUrl: feature.properties.imageUrl,
+      lastUpdated: new Date(),
+      status: feature.properties.status === 'active' ? 'online' : 'offline',
+    }));
+  }
+
+  private parseGeneric(data: any, config: StateDOTConfig): DOTCamera[] {
+    // Generic parser for unknown formats
+    const items = Array.isArray(data) ? data : data.cameras || data.features || [];
+
+    return items.map((item: any) => ({
+      id: `${config.state.toLowerCase()}-${item.id || Math.random().toString(36).slice(2)}`,
+      name: item.name || item.description || 'Unknown Camera',
+      location: {
+        lat: item.latitude || item.lat || item.geometry?.coordinates?.[1],
+        lng: item.longitude || item.lng || item.lon || item.geometry?.coordinates?.[0],
+      },
+      route: item.route || item.roadway,
+      state: config.state,
+      source: config.name.toLowerCase().replace(/\s/g, ''),
+      imageUrl: item.imageUrl || item.url || item.image,
+      lastUpdated: new Date(),
+      status: 'unknown' as const,
+    }));
+  }
+
+  /**
+   * Get cameras within a bounding box
+   */
+  async getCamerasInBounds(
+    bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number }
+  ): Promise<DOTCamera[]> {
+    const allCameras = await this.fetchCameras();
+
+    return allCameras.filter(camera =>
+      camera.location.lat >= bounds.minLat &&
+      camera.location.lat <= bounds.maxLat &&
+      camera.location.lng >= bounds.minLng &&
+      camera.location.lng <= bounds.maxLng
+    );
+  }
+
+  /**
+   * Get cameras along a specific route
+   */
+  async getCamerasOnRoute(route: string, state?: string): Promise<DOTCamera[]> {
+    const allCameras = await this.fetchCameras();
+    const normalizedRoute = route.toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+    return allCameras.filter(camera => {
+      if (state && camera.state !== state) return false;
+      const cameraRoute = (camera.route || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      return cameraRoute.includes(normalizedRoute) || normalizedRoute.includes(cameraRoute);
+    });
+  }
+}
+```
+
+---
+
+## Citizen App Adapter
+
+**File: `apps/api/src/feeds/adapters/crowdsourced/citizen.adapter.ts`**
+```typescript
+import { BaseFeedAdapter, type FeedConfig } from '../../adapter.interface';
+import type { CitizenIncident, CitizenIncidentCategory, RawIncident } from '../../types/critical-infrastructure.types';
+import WebSocket from 'ws';
+
+/**
+ * Citizen App incident categories mapped to our incident types
+ */
+const CATEGORY_MAP: Record<string, CitizenIncidentCategory> = {
+  'police': 'police_activity',
+  'police activity': 'police_activity',
+  'fire': 'fire',
+  'fire/ems': 'fire',
+  'medical': 'ems_medical',
+  'ems': 'ems_medical',
+  'accident': 'traffic_accident',
+  'traffic': 'traffic_accident',
+  'crash': 'traffic_accident',
+  'crime': 'crime',
+  'hazmat': 'hazmat',
+  'gas leak': 'hazmat',
+  'protest': 'protest_demonstration',
+  'demonstration': 'protest_demonstration',
+  'missing': 'missing_person',
+  'weather': 'weather_emergency',
+  'suspicious': 'suspicious_activity',
+  'shooting': 'shooting',
+  'shots fired': 'shooting',
+  'assault': 'assault',
+  'robbery': 'robbery',
+  'burglary': 'burglary',
+};
+
+/**
+ * Citizen App incident adapter
+ * Fetches crowdsourced incident data from Citizen app
+ *
+ * Note: Citizen doesn't have a public API. This implementation
+ * describes the expected interface for integrating with their
+ * data through authorized partnerships or scraping where permitted.
+ */
+export class CitizenAppAdapter extends BaseFeedAdapter {
+  name = 'Citizen App';
+  type = 'crowdsourced';
+
+  private wsConnection?: WebSocket;
+  private apiBaseUrl = 'https://citizen.com/api';
+  private supportedCities: string[] = [];
+  private incidentBuffer: CitizenIncident[] = [];
+  private onIncidentCallback?: (incident: CitizenIncident) => void;
+
+  async initialize(config: FeedConfig): Promise<void> {
+    await super.initialize(config);
+
+    // Configure supported cities/regions
+    this.supportedCities = (config.options?.cities as string[]) || [
+      'new-york', 'los-angeles', 'chicago', 'houston', 'phoenix',
+      'philadelphia', 'san-antonio', 'san-diego', 'dallas', 'san-jose',
+      'austin', 'jacksonville', 'fort-worth', 'columbus', 'charlotte',
+      'san-francisco', 'indianapolis', 'seattle', 'denver', 'boston',
+    ];
+  }
+
+  /**
+   * Fetch recent incidents from all configured cities
+   */
+  async fetch(): Promise<CitizenIncident[]> {
+    const allIncidents: CitizenIncident[] = [];
+
+    const results = await Promise.allSettled(
+      this.supportedCities.map(city => this.fetchCityIncidents(city))
+    );
+
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        allIncidents.push(...result.value);
+      }
+    }
+
+    // Sort by timestamp descending
+    allIncidents.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+
+    return allIncidents;
+  }
+
+  /**
+   * Fetch incidents for a specific city
+   */
+  private async fetchCityIncidents(city: string): Promise<CitizenIncident[]> {
+    try {
+      // This would be replaced with actual Citizen API or data source
+      const response = await fetch(`${this.apiBaseUrl}/incidents/${city}`, {
+        headers: {
+          'User-Agent': 'SituationMonitor/1.0',
+          // Add auth headers as required
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Citizen API error for ${city}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return this.parseIncidents(data.incidents || [], city);
+    } catch (error) {
+      console.error(`[Citizen] Failed to fetch ${city}:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * Parse raw Citizen data into our incident format
+   */
+  private parseIncidents(rawIncidents: any[], city: string): CitizenIncident[] {
+    return rawIncidents.map(item => this.parseIncident(item, city));
+  }
+
+  private parseIncident(item: any, city: string): CitizenIncident {
+    const category = this.mapCategory(item.category || item.type || 'other');
+    const severity = this.calculateSeverity(item, category);
+
+    return {
+      id: `citizen-${item.id || item.key}`,
+      title: item.title || item.headline,
+      description: item.description || item.updates?.[0]?.text,
+      category,
+      severity,
+      location: {
+        lat: item.latitude || item.location?.lat,
+        lng: item.longitude || item.location?.lng,
+        address: item.address || item.location?.address,
+        neighborhood: item.neighborhood,
+        city: item.city || city.replace(/-/g, ' '),
+        state: item.state,
+      },
+      timestamp: new Date(item.created || item.timestamp),
+      updatedAt: new Date(item.updated || item.lastUpdate || item.created),
+      status: this.mapStatus(item.status || item.state),
+
+      viewCount: item.viewCount || item.views,
+      commentCount: item.commentCount || item.comments?.length,
+      updateCount: item.updates?.length || 0,
+
+      hasVideo: item.hasVideo || item.media?.some((m: any) => m.type === 'video'),
+      hasPhoto: item.hasPhoto || item.media?.some((m: any) => m.type === 'image'),
+      hasAudio: item.hasAudio || item.media?.some((m: any) => m.type === 'audio'),
+      mediaUrls: item.media?.map((m: any) => m.url) || [],
+
+      sourceType: this.mapSourceType(item.source),
+      isVerified: item.verified || item.isVerified || false,
+      confidence: this.calculateConfidence(item),
+
+      policeUnits: item.policeUnits || item.units?.police,
+      fireUnits: item.fireUnits || item.units?.fire,
+      emsUnits: item.emsUnits || item.units?.ems,
+
+      notifyRadius: item.radius || item.notifyRadius,
+    };
+  }
+
+  private mapCategory(rawCategory: string): CitizenIncidentCategory {
+    const normalized = rawCategory.toLowerCase().trim();
+    return CATEGORY_MAP[normalized] || 'other';
+  }
+
+  private mapStatus(rawStatus: string): CitizenIncident['status'] {
+    const statusMap: Record<string, CitizenIncident['status']> = {
+      'active': 'active',
+      'live': 'active',
+      'ongoing': 'active',
+      'resolved': 'resolved',
+      'closed': 'resolved',
+      'cleared': 'resolved',
+      'unverified': 'unverified',
+      'pending': 'unverified',
+    };
+    return statusMap[rawStatus?.toLowerCase()] || 'unverified';
+  }
+
+  private mapSourceType(source: string): CitizenIncident['sourceType'] {
+    const sourceMap: Record<string, CitizenIncident['sourceType']> = {
+      'scanner': 'scanner',
+      'police_scanner': 'scanner',
+      'fire_scanner': 'scanner',
+      'user': 'user_report',
+      'user_report': 'user_report',
+      'news': 'news',
+      'official': 'official',
+      'government': 'official',
+    };
+    return sourceMap[source?.toLowerCase()] || 'user_report';
+  }
+
+  private calculateSeverity(item: any, category: CitizenIncidentCategory): CitizenIncident['severity'] {
+    // High severity categories
+    if (['shooting', 'assault', 'robbery', 'fire', 'hazmat'].includes(category)) {
+      return 'high';
+    }
+
+    // Check engagement metrics
+    if (item.viewCount > 10000 || item.commentCount > 100) {
+      return 'high';
+    }
+    if (item.viewCount > 1000 || item.commentCount > 20) {
+      return 'medium';
+    }
+
+    // Check unit response
+    const totalUnits = (item.policeUnits || 0) + (item.fireUnits || 0) + (item.emsUnits || 0);
+    if (totalUnits >= 5) return 'high';
+    if (totalUnits >= 3) return 'medium';
+
+    // Critical keywords in title/description
+    const text = `${item.title} ${item.description}`.toLowerCase();
+    if (text.includes('multiple') || text.includes('serious') || text.includes('critical')) {
+      return 'medium';
+    }
+
+    return 'low';
+  }
+
+  private calculateConfidence(item: any): number {
+    let confidence = 0.5; // Base confidence
+
+    // Verified incidents
+    if (item.verified || item.isVerified) confidence += 0.3;
+
+    // Multiple updates increase confidence
+    if (item.updates?.length > 3) confidence += 0.1;
+
+    // High engagement suggests real incident
+    if (item.viewCount > 1000) confidence += 0.05;
+    if (item.commentCount > 10) confidence += 0.05;
+
+    // Scanner source is more reliable
+    if (item.source === 'scanner') confidence += 0.1;
+
+    return Math.min(1.0, confidence);
+  }
+
+  /**
+   * Convert Citizen incident to generic RawIncident for correlation
+   */
+  toRawIncident(incident: CitizenIncident): RawIncident {
+    const typeMap: Record<CitizenIncidentCategory, RawIncident['type']> = {
+      'police_activity': 'physical_security',
+      'fire': 'fire',
+      'ems_medical': 'unknown',
+      'traffic_accident': 'unknown',
+      'crime': 'physical_security',
+      'hazmat': 'hazmat_release',
+      'protest_demonstration': 'labor_action',
+      'missing_person': 'unknown',
+      'weather_emergency': 'natural_disaster',
+      'suspicious_activity': 'physical_security',
+      'shooting': 'physical_security',
+      'assault': 'physical_security',
+      'robbery': 'physical_security',
+      'burglary': 'physical_security',
+      'other': 'unknown',
+    };
+
+    return {
+      id: incident.id,
+      source: 'citizen_app',
+      type: typeMap[incident.category],
+      title: incident.title,
+      description: incident.description,
+      location: {
+        lat: incident.location.lat,
+        lng: incident.location.lng,
+        address: incident.location.address,
+        region: `${incident.location.city}, ${incident.location.state}`,
+      },
+      timestamp: incident.timestamp,
+      confidence: incident.confidence,
+      sourceData: incident,
+    };
+  }
+
+  /**
+   * Subscribe to real-time incident updates via WebSocket
+   */
+  async subscribeToUpdates(
+    onIncident: (incident: CitizenIncident) => void,
+    cities?: string[]
+  ): Promise<void> {
+    this.onIncidentCallback = onIncident;
+    const targetCities = cities || this.supportedCities;
+
+    // Note: This is a conceptual implementation
+    // Actual WebSocket endpoint would need to be determined
+    const wsUrl = `wss://citizen.com/ws/incidents?cities=${targetCities.join(',')}`;
+
+    this.wsConnection = new WebSocket(wsUrl);
+
+    this.wsConnection.on('open', () => {
+      console.log('[Citizen] WebSocket connected');
+    });
+
+    this.wsConnection.on('message', (data: Buffer) => {
+      try {
+        const message = JSON.parse(data.toString());
+        if (message.type === 'incident') {
+          const incident = this.parseIncident(message.data, message.city);
+          this.onIncidentCallback?.(incident);
+        }
+      } catch (error) {
+        console.error('[Citizen] Failed to parse WebSocket message:', error);
+      }
+    });
+
+    this.wsConnection.on('error', (error) => {
+      console.error('[Citizen] WebSocket error:', error);
+    });
+
+    this.wsConnection.on('close', () => {
+      console.log('[Citizen] WebSocket disconnected, reconnecting...');
+      setTimeout(() => this.subscribeToUpdates(onIncident, cities), 5000);
+    });
+  }
+
+  /**
+   * Unsubscribe from real-time updates
+   */
+  unsubscribe(): void {
+    if (this.wsConnection) {
+      this.wsConnection.close();
+      this.wsConnection = undefined;
+    }
+  }
+
+  /**
+   * Get incidents within a radius of a point
+   */
+  async getIncidentsNearPoint(
+    point: { lat: number; lng: number },
+    radiusKm: number
+  ): Promise<CitizenIncident[]> {
+    const incidents = await this.fetch();
+
+    return incidents.filter(incident => {
+      const distance = haversineDistance(point, incident.location);
+      return distance <= radiusKm;
+    });
+  }
+
+  /**
+   * Get incidents by category
+   */
+  async getIncidentsByCategory(
+    categories: CitizenIncidentCategory[]
+  ): Promise<CitizenIncident[]> {
+    const incidents = await this.fetch();
+    return incidents.filter(i => categories.includes(i.category));
+  }
+}
+
+function haversineDistance(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 6371;
+  const dLat = (b.lat - a.lat) * Math.PI / 180;
+  const dLon = (b.lng - a.lng) * Math.PI / 180;
+  const lat1 = a.lat * Math.PI / 180;
+  const lat2 = b.lat * Math.PI / 180;
+
+  const x = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
 }
 ```
 
@@ -1807,6 +2681,564 @@ export function CriticalInfrastructureLayer({
 
 ---
 
+## DOT Camera Map Layer
+
+**File: `apps/web/src/features/map/layers/DOTCameraLayer.tsx`**
+```tsx
+import { useMemo, useState, useCallback } from 'react';
+import { Layer, Source, Popup } from 'react-map-gl';
+import { useQuery } from '@tanstack/react-query';
+import { fetchDOTCameras } from '@/lib/api/feeds';
+import type { DOTCamera } from '@/types/critical-infrastructure';
+
+interface DOTCameraLayerProps {
+  visible: boolean;
+  bounds?: { minLat: number; maxLat: number; minLng: number; maxLng: number };
+  stateFilter?: string[];
+  routeFilter?: string;
+  onCameraClick?: (camera: DOTCamera) => void;
+}
+
+const CAMERA_STATUS_COLORS = {
+  online: '#22c55e',   // green
+  offline: '#ef4444',  // red
+  unknown: '#6b7280',  // gray
+};
+
+export function DOTCameraLayer({
+  visible,
+  bounds,
+  stateFilter,
+  routeFilter,
+  onCameraClick,
+}: DOTCameraLayerProps) {
+  const [selectedCamera, setSelectedCamera] = useState<DOTCamera | null>(null);
+
+  const { data: cameraData } = useQuery({
+    queryKey: ['dot-cameras', bounds, stateFilter, routeFilter],
+    queryFn: () => fetchDOTCameras({ bounds, states: stateFilter, route: routeFilter }),
+    refetchInterval: 5 * 60 * 1000, // 5 minutes
+    enabled: visible && !!bounds,
+  });
+
+  const geojson = useMemo(() => {
+    if (!cameraData?.cameras) return null;
+
+    return {
+      type: 'FeatureCollection' as const,
+      features: cameraData.cameras.map((camera: DOTCamera) => ({
+        type: 'Feature' as const,
+        id: camera.id,
+        geometry: {
+          type: 'Point' as const,
+          coordinates: [camera.location.lng, camera.location.lat],
+        },
+        properties: {
+          id: camera.id,
+          name: camera.name,
+          route: camera.route,
+          direction: camera.direction,
+          state: camera.state,
+          status: camera.status,
+          imageUrl: camera.imageUrl,
+          hasStream: !!camera.streamUrl,
+        },
+      })),
+    };
+  }, [cameraData?.cameras]);
+
+  const handleClick = useCallback((event: any) => {
+    const feature = event.features?.[0];
+    if (feature) {
+      const camera = cameraData?.cameras.find(
+        (c: DOTCamera) => c.id === feature.properties.id
+      );
+      if (camera) {
+        setSelectedCamera(camera);
+        onCameraClick?.(camera);
+      }
+    }
+  }, [cameraData?.cameras, onCameraClick]);
+
+  if (!visible) return null;
+
+  return (
+    <>
+      {geojson && (
+        <Source id="dot-cameras" type="geojson" data={geojson}>
+          {/* Camera markers */}
+          <Layer
+            id="dot-cameras-markers"
+            type="symbol"
+            minzoom={8}
+            layout={{
+              'icon-image': 'camera',
+              'icon-size': [
+                'interpolate', ['linear'], ['zoom'],
+                8, 0.5,
+                12, 0.8,
+                16, 1.0,
+              ],
+              'icon-allow-overlap': false,
+              'icon-ignore-placement': false,
+            }}
+            paint={{
+              'icon-opacity': [
+                'match', ['get', 'status'],
+                'online', 1,
+                'offline', 0.5,
+                0.7,
+              ],
+            }}
+          />
+
+          {/* Fallback circles if icon not loaded */}
+          <Layer
+            id="dot-cameras-circles"
+            type="circle"
+            minzoom={8}
+            paint={{
+              'circle-radius': [
+                'interpolate', ['linear'], ['zoom'],
+                8, 4,
+                12, 6,
+                16, 8,
+              ],
+              'circle-color': [
+                'match', ['get', 'status'],
+                'online', CAMERA_STATUS_COLORS.online,
+                'offline', CAMERA_STATUS_COLORS.offline,
+                CAMERA_STATUS_COLORS.unknown,
+              ],
+              'circle-stroke-color': '#ffffff',
+              'circle-stroke-width': 1,
+            }}
+          />
+
+          {/* Route labels */}
+          <Layer
+            id="dot-cameras-labels"
+            type="symbol"
+            minzoom={11}
+            layout={{
+              'text-field': ['concat', ['get', 'route'], ' ', ['get', 'direction']],
+              'text-size': 10,
+              'text-offset': [0, 1.2],
+              'text-anchor': 'top',
+              'text-optional': true,
+            }}
+            paint={{
+              'text-color': '#e5e5e5',
+              'text-halo-color': '#000000',
+              'text-halo-width': 1,
+            }}
+          />
+        </Source>
+      )}
+
+      {/* Camera popup with image preview */}
+      {selectedCamera && (
+        <Popup
+          longitude={selectedCamera.location.lng}
+          latitude={selectedCamera.location.lat}
+          onClose={() => setSelectedCamera(null)}
+          closeButton={true}
+          closeOnClick={false}
+          className="dot-camera-popup"
+        >
+          <div className="p-2 max-w-xs">
+            <h3 className="font-medium text-sm mb-1">{selectedCamera.name}</h3>
+            <p className="text-xs text-neutral-400 mb-2">
+              {selectedCamera.route} {selectedCamera.direction} - {selectedCamera.state}
+            </p>
+            <div className="relative">
+              <img
+                src={selectedCamera.imageUrl}
+                alt={selectedCamera.name}
+                className="w-full h-32 object-cover rounded"
+                loading="lazy"
+              />
+              {selectedCamera.streamUrl && (
+                <span className="absolute top-1 right-1 bg-red-600 text-white text-xs px-1 rounded">
+                  LIVE
+                </span>
+              )}
+            </div>
+            <div className="flex items-center justify-between mt-2 text-xs">
+              <span className={
+                selectedCamera.status === 'online' ? 'text-green-400' :
+                selectedCamera.status === 'offline' ? 'text-red-400' :
+                'text-neutral-400'
+              }>
+                {selectedCamera.status.toUpperCase()}
+              </span>
+              <span className="text-neutral-500">
+                {selectedCamera.lastUpdated.toLocaleTimeString()}
+              </span>
+            </div>
+          </div>
+        </Popup>
+      )}
+    </>
+  );
+}
+```
+
+---
+
+## Citizen Incidents Map Layer
+
+**File: `apps/web/src/features/map/layers/CitizenIncidentsLayer.tsx`**
+```tsx
+import { useMemo, useState, useCallback } from 'react';
+import { Layer, Source, Popup } from 'react-map-gl';
+import { useQuery } from '@tanstack/react-query';
+import { fetchCitizenIncidents } from '@/lib/api/feeds';
+import type { CitizenIncident, CitizenIncidentCategory } from '@/types/critical-infrastructure';
+
+interface CitizenIncidentsLayerProps {
+  visible: boolean;
+  bounds?: { minLat: number; maxLat: number; minLng: number; maxLng: number };
+  categoryFilter?: CitizenIncidentCategory[];
+  severityFilter?: ('low' | 'medium' | 'high' | 'critical')[];
+  showResolved?: boolean;
+  onIncidentClick?: (incident: CitizenIncident) => void;
+}
+
+const CATEGORY_COLORS: Record<CitizenIncidentCategory, string> = {
+  police_activity: '#3b82f6',        // blue
+  fire: '#ef4444',                   // red
+  ems_medical: '#ec4899',            // pink
+  traffic_accident: '#f97316',       // orange
+  crime: '#dc2626',                  // dark red
+  hazmat: '#eab308',                 // yellow
+  protest_demonstration: '#8b5cf6',   // purple
+  missing_person: '#06b6d4',          // cyan
+  weather_emergency: '#6366f1',       // indigo
+  suspicious_activity: '#64748b',     // slate
+  shooting: '#b91c1c',               // deep red
+  assault: '#be123c',                // rose
+  robbery: '#c2410c',                // orange dark
+  burglary: '#92400e',               // amber dark
+  other: '#6b7280',                  // gray
+};
+
+const CATEGORY_ICONS: Record<CitizenIncidentCategory, string> = {
+  police_activity: '🚔',
+  fire: '🔥',
+  ems_medical: '🚑',
+  traffic_accident: '🚗',
+  crime: '⚠️',
+  hazmat: '☢️',
+  protest_demonstration: '📢',
+  missing_person: '🔍',
+  weather_emergency: '⛈️',
+  suspicious_activity: '👁️',
+  shooting: '🔫',
+  assault: '💥',
+  robbery: '💰',
+  burglary: '🏠',
+  other: '📍',
+};
+
+const SEVERITY_SIZES = {
+  low: 8,
+  medium: 10,
+  high: 14,
+  critical: 18,
+};
+
+export function CitizenIncidentsLayer({
+  visible,
+  bounds,
+  categoryFilter,
+  severityFilter,
+  showResolved = false,
+  onIncidentClick,
+}: CitizenIncidentsLayerProps) {
+  const [selectedIncident, setSelectedIncident] = useState<CitizenIncident | null>(null);
+
+  const { data: incidentData } = useQuery({
+    queryKey: ['citizen-incidents', bounds, categoryFilter],
+    queryFn: () => fetchCitizenIncidents({
+      bounds,
+      categories: categoryFilter,
+    }),
+    refetchInterval: 30 * 1000, // 30 seconds - more frequent for real-time feel
+    enabled: visible,
+  });
+
+  const geojson = useMemo(() => {
+    if (!incidentData?.incidents) return null;
+
+    let incidents = incidentData.incidents;
+
+    // Filter by status
+    if (!showResolved) {
+      incidents = incidents.filter((i: CitizenIncident) => i.status !== 'resolved');
+    }
+
+    // Filter by severity
+    if (severityFilter?.length) {
+      incidents = incidents.filter((i: CitizenIncident) =>
+        severityFilter.includes(i.severity)
+      );
+    }
+
+    return {
+      type: 'FeatureCollection' as const,
+      features: incidents.map((incident: CitizenIncident) => ({
+        type: 'Feature' as const,
+        id: incident.id,
+        geometry: {
+          type: 'Point' as const,
+          coordinates: [incident.location.lng, incident.location.lat],
+        },
+        properties: {
+          id: incident.id,
+          title: incident.title,
+          category: incident.category,
+          severity: incident.severity,
+          status: incident.status,
+          hasMedia: incident.hasVideo || incident.hasPhoto,
+          isVerified: incident.isVerified,
+          viewCount: incident.viewCount || 0,
+          timestamp: incident.timestamp.toISOString(),
+        },
+      })),
+    };
+  }, [incidentData?.incidents, showResolved, severityFilter]);
+
+  const handleClick = useCallback((event: any) => {
+    const feature = event.features?.[0];
+    if (feature) {
+      const incident = incidentData?.incidents.find(
+        (i: CitizenIncident) => i.id === feature.properties.id
+      );
+      if (incident) {
+        setSelectedIncident(incident);
+        onIncidentClick?.(incident);
+      }
+    }
+  }, [incidentData?.incidents, onIncidentClick]);
+
+  if (!visible) return null;
+
+  return (
+    <>
+      {geojson && (
+        <Source id="citizen-incidents" type="geojson" data={geojson}>
+          {/* Pulsing background for active incidents */}
+          <Layer
+            id="citizen-incidents-pulse"
+            type="circle"
+            filter={['==', ['get', 'status'], 'active']}
+            paint={{
+              'circle-radius': [
+                'match', ['get', 'severity'],
+                'critical', 30,
+                'high', 25,
+                'medium', 20,
+                15,
+              ],
+              'circle-color': [
+                'match', ['get', 'category'],
+                'shooting', 'rgba(185, 28, 28, 0.4)',
+                'fire', 'rgba(239, 68, 68, 0.4)',
+                'hazmat', 'rgba(234, 179, 8, 0.4)',
+                'rgba(59, 130, 246, 0.3)',
+              ],
+              'circle-opacity': [
+                'interpolate', ['linear'], ['zoom'],
+                10, 0.6,
+                15, 0.4,
+              ],
+            }}
+          />
+
+          {/* Main incident markers */}
+          <Layer
+            id="citizen-incidents-markers"
+            type="circle"
+            paint={{
+              'circle-radius': [
+                'match', ['get', 'severity'],
+                'critical', SEVERITY_SIZES.critical,
+                'high', SEVERITY_SIZES.high,
+                'medium', SEVERITY_SIZES.medium,
+                SEVERITY_SIZES.low,
+              ],
+              'circle-color': [
+                'match', ['get', 'category'],
+                'police_activity', CATEGORY_COLORS.police_activity,
+                'fire', CATEGORY_COLORS.fire,
+                'ems_medical', CATEGORY_COLORS.ems_medical,
+                'traffic_accident', CATEGORY_COLORS.traffic_accident,
+                'crime', CATEGORY_COLORS.crime,
+                'hazmat', CATEGORY_COLORS.hazmat,
+                'shooting', CATEGORY_COLORS.shooting,
+                'assault', CATEGORY_COLORS.assault,
+                'robbery', CATEGORY_COLORS.robbery,
+                CATEGORY_COLORS.other,
+              ],
+              'circle-opacity': [
+                'match', ['get', 'status'],
+                'active', 1,
+                'resolved', 0.4,
+                0.7,
+              ],
+              'circle-stroke-color': [
+                'case',
+                ['get', 'isVerified'], '#ffffff',
+                'rgba(255, 255, 255, 0.5)',
+              ],
+              'circle-stroke-width': [
+                'case',
+                ['get', 'isVerified'], 2,
+                1,
+              ],
+            }}
+          />
+
+          {/* Media indicator */}
+          <Layer
+            id="citizen-incidents-media"
+            type="circle"
+            filter={['==', ['get', 'hasMedia'], true]}
+            paint={{
+              'circle-radius': 4,
+              'circle-color': '#ffffff',
+              'circle-translate': [8, -8],
+            }}
+          />
+
+          {/* Labels for high-severity incidents */}
+          <Layer
+            id="citizen-incidents-labels"
+            type="symbol"
+            minzoom={12}
+            filter={['in', ['get', 'severity'], ['literal', ['high', 'critical']]]},
+            layout={{
+              'text-field': ['get', 'title'],
+              'text-size': 11,
+              'text-offset': [0, 1.5],
+              'text-anchor': 'top',
+              'text-max-width': 15,
+              'text-optional': true,
+            }}
+            paint={{
+              'text-color': '#ffffff',
+              'text-halo-color': '#000000',
+              'text-halo-width': 1,
+            }}
+          />
+        </Source>
+      )}
+
+      {/* Incident detail popup */}
+      {selectedIncident && (
+        <Popup
+          longitude={selectedIncident.location.lng}
+          latitude={selectedIncident.location.lat}
+          onClose={() => setSelectedIncident(null)}
+          closeButton={true}
+          closeOnClick={false}
+          className="citizen-incident-popup"
+        >
+          <div className="p-3 max-w-sm">
+            <div className="flex items-start gap-2">
+              <span className="text-2xl">{CATEGORY_ICONS[selectedIncident.category]}</span>
+              <div className="flex-1">
+                <h3 className="font-medium text-sm">{selectedIncident.title}</h3>
+                <p className="text-xs text-neutral-400">
+                  {selectedIncident.location.neighborhood || selectedIncident.location.address}
+                </p>
+              </div>
+              {selectedIncident.isVerified && (
+                <span className="bg-green-600 text-white text-xs px-1 rounded">
+                  VERIFIED
+                </span>
+              )}
+            </div>
+
+            {selectedIncident.description && (
+              <p className="text-xs text-neutral-300 mt-2 line-clamp-3">
+                {selectedIncident.description}
+              </p>
+            )}
+
+            <div className="flex items-center justify-between mt-3 text-xs">
+              <div className="flex items-center gap-2">
+                <span className={`px-2 py-0.5 rounded ${
+                  selectedIncident.status === 'active' ? 'bg-red-600' :
+                  selectedIncident.status === 'resolved' ? 'bg-green-600' :
+                  'bg-neutral-600'
+                }`}>
+                  {selectedIncident.status.toUpperCase()}
+                </span>
+                <span className={`px-2 py-0.5 rounded ${
+                  selectedIncident.severity === 'critical' ? 'bg-red-800' :
+                  selectedIncident.severity === 'high' ? 'bg-orange-700' :
+                  selectedIncident.severity === 'medium' ? 'bg-yellow-700' :
+                  'bg-neutral-600'
+                }`}>
+                  {selectedIncident.severity.toUpperCase()}
+                </span>
+              </div>
+              <span className="text-neutral-500">
+                {new Date(selectedIncident.timestamp).toLocaleTimeString()}
+              </span>
+            </div>
+
+            {/* Units responding */}
+            {(selectedIncident.policeUnits || selectedIncident.fireUnits || selectedIncident.emsUnits) && (
+              <div className="mt-2 pt-2 border-t border-neutral-700 text-xs">
+                <span className="text-neutral-400">Units: </span>
+                {selectedIncident.policeUnits && (
+                  <span className="mr-2">🚔 {selectedIncident.policeUnits}</span>
+                )}
+                {selectedIncident.fireUnits && (
+                  <span className="mr-2">🚒 {selectedIncident.fireUnits}</span>
+                )}
+                {selectedIncident.emsUnits && (
+                  <span>🚑 {selectedIncident.emsUnits}</span>
+                )}
+              </div>
+            )}
+
+            {/* Engagement metrics */}
+            {(selectedIncident.viewCount || selectedIncident.commentCount) && (
+              <div className="mt-2 text-xs text-neutral-500">
+                {selectedIncident.viewCount && (
+                  <span className="mr-3">👁 {selectedIncident.viewCount.toLocaleString()}</span>
+                )}
+                {selectedIncident.commentCount && (
+                  <span>💬 {selectedIncident.commentCount}</span>
+                )}
+              </div>
+            )}
+
+            {/* Media indicator */}
+            {(selectedIncident.hasVideo || selectedIncident.hasPhoto) && (
+              <div className="mt-2 flex gap-2 text-xs">
+                {selectedIncident.hasVideo && (
+                  <span className="bg-neutral-700 px-2 py-0.5 rounded">📹 Video</span>
+                )}
+                {selectedIncident.hasPhoto && (
+                  <span className="bg-neutral-700 px-2 py-0.5 rounded">📷 Photo</span>
+                )}
+              </div>
+            )}
+          </div>
+        </Popup>
+      )}
+    </>
+  );
+}
+```
+
+---
+
 ## Sector Dashboard Component
 
 **File: `apps/web/src/features/infrastructure/SectorDashboard.tsx`**
@@ -2046,14 +3478,18 @@ export const infrastructureIncidents = pgTable('infrastructure_incidents', {
 
 | Path | Description |
 |------|-------------|
-| `apps/api/src/feeds/types/critical-infrastructure.types.ts` | Type definitions for CISA sectors, facilities, and incidents |
+| `apps/api/src/feeds/types/critical-infrastructure.types.ts` | Type definitions for CISA sectors, facilities, incidents, DOT cameras, Citizen incidents |
 | `apps/api/src/feeds/adapters/infrastructure/firms.adapter.ts` | NASA FIRMS satellite fire adapter |
 | `apps/api/src/feeds/adapters/infrastructure/nrc.adapter.ts` | NRC nuclear event feed adapter |
 | `apps/api/src/feeds/adapters/infrastructure/power-outage.adapter.ts` | Power outage monitoring adapter |
+| `apps/api/src/feeds/adapters/traffic/dot-camera.adapter.ts` | Multi-state DOT traffic camera aggregator |
+| `apps/api/src/feeds/adapters/crowdsourced/citizen.adapter.ts` | Citizen app incident feed adapter |
 | `apps/api/src/feeds/services/facility-database.ts` | Facility database service (HIFLD, OSM, EIA) |
 | `apps/api/src/feeds/services/incident-correlator.ts` | Multi-source incident correlation engine |
 | `apps/api/drizzle/schema/critical-infrastructure.ts` | Database schema for facilities and incidents |
 | `apps/web/src/features/map/layers/CriticalInfrastructureLayer.tsx` | Map layer for facilities and incidents |
+| `apps/web/src/features/map/layers/DOTCameraLayer.tsx` | DOT traffic camera map layer with image popups |
+| `apps/web/src/features/map/layers/CitizenIncidentsLayer.tsx` | Citizen app incident layer with category styling |
 | `apps/web/src/features/infrastructure/SectorDashboard.tsx` | Sector status dashboard component |
 
 ---
@@ -2092,6 +3528,27 @@ export const infrastructureIncidents = pgTable('infrastructure_incidents', {
 - [ ] Trend indicators (improving/degrading/stable)
 - [ ] Real-time updates (1-minute refresh)
 
+### DOT Traffic Cameras
+- [ ] Adapter fetches cameras from multiple state DOTs (CA, NY, TX, FL, PA, IL)
+- [ ] Camera data includes location, route, direction, status
+- [ ] Image URLs refresh at configured intervals per state
+- [ ] Map layer shows cameras with online/offline status
+- [ ] Popup displays camera image preview with live indicator
+- [ ] Route and state filters work correctly
+- [ ] Cameras only load when zoomed in sufficiently (minzoom 8)
+
+### Citizen App Integration
+- [ ] Adapter fetches incidents from configured cities
+- [ ] Incidents categorized by type (police, fire, EMS, crime, etc.)
+- [ ] Severity calculated from category, engagement, and unit response
+- [ ] Confidence score reflects verification status and corroboration
+- [ ] Map layer shows incidents with category-based colors
+- [ ] Pulsing animation for active high-severity incidents
+- [ ] Popup displays incident details, units responding, media indicators
+- [ ] Real-time refresh (30 seconds) for responsive updates
+- [ ] Category and severity filters work correctly
+- [ ] Option to show/hide resolved incidents
+
 ---
 
 ## Environment Variables
@@ -2103,15 +3560,41 @@ NASA_FIRMS_MAP_KEY=your_map_key  # Free from https://firms.modaps.eosdis.nasa.go
 # Optional: Additional data sources
 EIA_API_KEY=your_eia_key        # Energy Information Administration
 NRC_API_KEY=your_nrc_key        # Nuclear Regulatory Commission (if required)
+
+# DOT Traffic Camera APIs (keys vary by state)
+DOT_NY_API_KEY=your_511ny_key   # New York 511
+DOT_TX_API_KEY=your_txdot_key   # Texas DriveTexas
+DOT_PA_API_KEY=your_penndot_key # Pennsylvania 511PA
+
+# Citizen App (requires partnership/data agreement)
+# Note: Citizen doesn't have a public API - integration requires
+# partnership agreement or authorized data access
+CITIZEN_API_KEY=your_citizen_key
+CITIZEN_ENABLED_CITIES=new-york,los-angeles,chicago,houston,phoenix
 ```
 
 ---
 
 ## Data Source References
 
+### Government & Official Sources
 - **HIFLD**: https://hifld-geoplatform.opendata.arcgis.com/
 - **NASA FIRMS**: https://firms.modaps.eosdis.nasa.gov/
 - **NRC Events**: https://www.nrc.gov/reading-rm/doc-collections/event-status/
 - **EIA**: https://www.eia.gov/opendata/
 - **PowerOutage.us**: https://poweroutage.us/
 - **CISA Sectors**: https://www.cisa.gov/topics/critical-infrastructure-security-and-resilience/critical-infrastructure-sectors
+
+### State DOT Traffic Camera APIs
+- **Caltrans (CA)**: https://cwwp2.dot.ca.gov/ - Open data, no API key required
+- **511NY (NY)**: https://511ny.org/developers - Requires API key registration
+- **DriveTexas (TX)**: https://www.drivetexas.org/ - Requires API key
+- **FL511 (FL)**: https://fl511.com/ - Open data feed
+- **511PA (PA)**: https://www.511pa.com/ - Requires API key
+- **GettingAroundIllinois (IL)**: https://www.gettingaroundillinois.com/ - GeoJSON feed
+- **USDOT 511 Clearinghouse**: https://www.its.dot.gov/511.htm - National 511 resources
+
+### Crowdsourced Data
+- **Citizen App**: https://citizen.com/ - Requires partnership agreement for API access
+- **OpenStreetMap**: https://www.openstreetmap.org/ - Infrastructure data via Overpass API
+- **Waze Traffic Data**: https://www.waze.com/ccp - Connected Citizens Program (requires agreement)
