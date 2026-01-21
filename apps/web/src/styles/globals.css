@@ -2,47 +2,132 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  /* Core Colors - Ops-Center Dark Theme */
-  --background: #0a0a0a;
-  --foreground: #e5e5e5;
-  --accent-green: #00ff88;
-  --accent-blue: #00d4ff;
-  --accent-amber: #ffaa00;
-  --accent-red: #ff3333;
+@layer base {
+  :root {
+    /* Ops-Center Dark Theme */
+    --background: 0 0% 4%;          /* #0a0a0a */
+    --foreground: 0 0% 90%;         /* #e5e5e5 */
 
-  /* Typography */
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
-  --font-sans: 'Inter', system-ui, sans-serif;
+    --card: 0 0% 7%;                /* #111111 */
+    --card-foreground: 0 0% 90%;
+
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 90%;
+
+    --primary: 152 100% 50%;        /* #00ff88 - Terminal green */
+    --primary-foreground: 0 0% 4%;
+
+    --secondary: 0 0% 10%;          /* #1a1a1a */
+    --secondary-foreground: 0 0% 90%;
+
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 64%;   /* #a3a3a3 */
+
+    --accent: 192 100% 50%;         /* #00d4ff - Tactical blue */
+    --accent-foreground: 0 0% 4%;
+
+    --destructive: 0 100% 60%;      /* #ff3333 */
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 16%;             /* #2a2a2a */
+    --input: 0 0% 16%;
+    --ring: 152 100% 50%;
+
+    --radius: 0.5rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-background;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted;
+  }
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+@layer components {
+  /* Tactical glow effect */
+  .glow-green {
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.3),
+                0 0 20px rgba(0, 255, 136, 0.1);
+  }
 
-body {
-  font-family: var(--font-sans);
-  background-color: var(--background);
-  color: var(--foreground);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+  .glow-blue {
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.3),
+                0 0 20px rgba(0, 212, 255, 0.1);
+  }
 
-/* Utility Classes */
-.bg-background {
-  background-color: var(--background);
-}
+  .glow-amber {
+    box-shadow: 0 0 10px rgba(255, 170, 0, 0.3),
+                0 0 20px rgba(255, 170, 0, 0.1);
+  }
 
-.text-foreground {
-  color: var(--foreground);
-}
+  .glow-red {
+    box-shadow: 0 0 10px rgba(255, 51, 51, 0.3),
+                0 0 20px rgba(255, 51, 51, 0.1);
+  }
 
-.text-primary {
-  color: var(--accent-green);
-}
+  /* Scanline overlay */
+  .scanline-overlay::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.1) 2px,
+      rgba(0, 0, 0, 0.1) 4px
+    );
+    pointer-events: none;
+  }
 
-.text-muted-foreground {
-  color: #a3a3a3;
+  /* Grid background */
+  .grid-bg {
+    background-size: 20px 20px;
+    background-image:
+      linear-gradient(to right, hsl(var(--border)) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--border)) 1px, transparent 1px);
+  }
+
+  /* Data display monospace */
+  .data-display {
+    @apply font-mono text-sm tracking-tight;
+  }
+
+  /* Status indicator */
+  .status-indicator {
+    @apply inline-block w-2 h-2 rounded-full;
+  }
+
+  .status-indicator.active {
+    @apply bg-tactical-green animate-pulse-glow;
+  }
+
+  .status-indicator.warning {
+    @apply bg-tactical-amber animate-pulse-glow;
+  }
+
+  .status-indicator.critical {
+    @apply bg-tactical-red animate-pulse-glow;
+  }
 }
