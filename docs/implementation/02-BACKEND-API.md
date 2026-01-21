@@ -1226,6 +1226,1235 @@ export { routes };
 
 ---
 
+## Security Hardening
+
+### 2.16 Production Rate Limiting
+
+The current in-memory rate limiter doesn't scale to multiple instances. For production, use Redis-backed sliding window rate limiting.
+
+**File: `apps/api/src/middleware/rateLimit.ts`** (production version)
+```typescript
+import { createMiddleware } from 'hono/factory';
+import { redis } from '../lib/redis';
+
+interface RateLimitConfig {
+  windowMs: number;
+  maxRequests: number;
+  keyPrefix?: string;
+}
+
+const defaultConfig: RateLimitConfig = {
+  windowMs: 60 * 1000, // 1 minute
+  maxRequests: 100,
+  keyPrefix: 'rl:',
+};
+
+// Per-route rate limit configurations
+export const rateLimitConfigs = {
+  auth: { windowMs: 15 * 60 * 1000, maxRequests: 5 },      // 5 attempts per 15 min
+  register: { windowMs: 60 * 60 * 1000, maxRequests: 3 }, // 3 per hour
+  api: { windowMs: 60 * 1000, maxRequests: 100 },         // 100 per minute
+  ai: { windowMs: 60 * 1000, maxRequests: 10 },           // 10 AI calls per minute
+} as const;
+
+export function createRateLimiter(config: Partial<RateLimitConfig> = {}) {
+  const { windowMs, maxRequests, keyPrefix } = { ...defaultConfig, ...config };
+
+  return createMiddleware(async (c, next) => {
+    const clientId = c.get('user')?.sub ||
+                     c.req.header('x-forwarded-for') ||
+                     c.req.header('x-real-ip') ||
+                     'anonymous';
+
+    const key = `${keyPrefix}${clientId}`;
+    const now = Date.now();
+    const windowStart = now - windowMs;
+
+    // Sliding window using sorted set
+    const pipeline = redis.pipeline();
+    pipeline.zremrangebyscore(key, 0, windowStart);
+    pipeline.zadd(key, now, `${now}-${Math.random()}`);
+    pipeline.zcard(key);
+    pipeline.pexpire(key, windowMs);
+
+    const results = await pipeline.exec();
+    const requestCount = results?.[2]?.[1] as number || 0;
+
+    // Set rate limit headers
+    c.header('X-RateLimit-Limit', maxRequests.toString());
+    c.header('X-RateLimit-Remaining', Math.max(0, maxRequests - requestCount).toString());
+    c.header('X-RateLimit-Reset', (now + windowMs).toString());
+
+    if (requestCount > maxRequests) {
+      c.header('Retry-After', Math.ceil(windowMs / 1000).toString());
+      return c.json(
+        { error: { message: 'Too many requests', code: 'RATE_LIMITED' } },
+        429
+      );
+    }
+
+    await next();
+  });
+}
+
+// Convenience middleware for common routes
+export const authRateLimiter = createRateLimiter(rateLimitConfigs.auth);
+export const registerRateLimiter = createRateLimiter(rateLimitConfigs.register);
+export const apiRateLimiter = createRateLimiter(rateLimitConfigs.api);
+export const aiRateLimiter = createRateLimiter(rateLimitConfigs.ai);
+```
+
+---
+
+### 2.17 CSRF Protection
+
+Implement double-submit cookie pattern for state-changing requests.
+
+**File: `apps/api/src/middleware/csrf.ts`**
+```typescript
+import { createMiddleware } from 'hono/factory';
+import { randomBytes, timingSafeEqual } from 'crypto';
+import { getCookie, setCookie } from 'hono/cookie';
+
+import { ForbiddenError } from '../lib/errors';
+
+const CSRF_COOKIE = 'csrf_token';
+const CSRF_HEADER = 'x-csrf-token';
+const TOKEN_LENGTH = 32;
+
+export const csrfProtection = createMiddleware(async (c, next) => {
+  // Skip for safe methods
+  const safeMethod = ['GET', 'HEAD', 'OPTIONS'].includes(c.req.method);
+
+  // Generate or retrieve CSRF token
+  let token = getCookie(c, CSRF_COOKIE);
+
+  if (!token) {
+    token = randomBytes(TOKEN_LENGTH).toString('hex');
+    setCookie(c, CSRF_COOKIE, token, {
+      httpOnly: false, // JS needs to read this
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'Strict',
+      maxAge: 60 * 60 * 24, // 24 hours
+      path: '/',
+    });
+  }
+
+  // For unsafe methods, verify token
+  if (!safeMethod) {
+    const headerToken = c.req.header(CSRF_HEADER);
+
+    if (!headerToken) {
+      throw new ForbiddenError('CSRF token missing');
+    }
+
+    // Timing-safe comparison to prevent timing attacks
+    const tokenBuffer = Buffer.from(token);
+    const headerBuffer = Buffer.from(headerToken);
+
+    if (tokenBuffer.length !== headerBuffer.length ||
+        !timingSafeEqual(tokenBuffer, headerBuffer)) {
+      throw new ForbiddenError('CSRF token invalid');
+    }
+  }
+
+  // Make token available for response
+  c.set('csrfToken' as never, token);
+
+  await next();
+});
+
+// Endpoint to get CSRF token for SPA
+export function csrfTokenEndpoint(c: any) {
+  const token = c.get('csrfToken');
+  return c.json({ csrfToken: token });
+}
+```
+
+---
+
+### 2.18 Request Correlation IDs
+
+Track requests across distributed systems for debugging.
+
+**File: `apps/api/src/middleware/correlation.ts`**
+```typescript
+import { createMiddleware } from 'hono/factory';
+import { randomUUID } from 'crypto';
+import { AsyncLocalStorage } from 'async_hooks';
+
+// AsyncLocalStorage for request context
+export const requestContext = new AsyncLocalStorage<{
+  requestId: string;
+  userId?: string;
+  startTime: number;
+}>();
+
+const REQUEST_ID_HEADER = 'x-request-id';
+
+export const correlationMiddleware = createMiddleware(async (c, next) => {
+  // Use existing request ID or generate new one
+  const requestId = c.req.header(REQUEST_ID_HEADER) || randomUUID();
+  const startTime = Date.now();
+
+  // Set in response header
+  c.header(REQUEST_ID_HEADER, requestId);
+
+  // Run in async context
+  await requestContext.run({ requestId, startTime }, async () => {
+    c.set('requestId', requestId);
+    await next();
+  });
+});
+
+// Helper to get current request context
+export function getRequestContext() {
+  return requestContext.getStore();
+}
+
+// Helper to get request ID for logging
+export function getRequestId(): string {
+  return requestContext.getStore()?.requestId || 'unknown';
+}
+```
+
+---
+
+### 2.19 API Versioning
+
+Implement URL prefix versioning with deprecation support.
+
+**File: `apps/api/src/routes/index.ts`** (updated with versioning)
+```typescript
+import { Hono } from 'hono';
+
+import { auth } from './auth';
+import { projectRoutes } from './projects';
+import { assessmentRoutes } from './assessments';
+import { pmesiiRoutes } from './pmesii';
+import { orgRoutes } from './organizations';
+
+// Version 1 API routes
+const v1 = new Hono();
+v1.route('/auth', auth);
+v1.route('/projects', projectRoutes);
+v1.route('/', assessmentRoutes);
+v1.route('/', pmesiiRoutes);
+v1.route('/organizations', orgRoutes);
+
+// Main router with versioning
+const routes = new Hono();
+
+// Versioned routes
+routes.route('/v1', v1);
+
+// Legacy routes (deprecated, redirect to v1)
+routes.use('/*', async (c, next) => {
+  // Set deprecation warning header for non-versioned API calls
+  const path = c.req.path;
+  if (!path.startsWith('/api/v') && !path.includes('/health')) {
+    c.header('Deprecation', 'true');
+    c.header('Sunset', new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toUTCString());
+    c.header('Link', '</api/v1>; rel="successor-version"');
+  }
+  await next();
+});
+
+// Mount v1 as default for backwards compatibility
+routes.route('/', v1);
+
+export { routes };
+```
+
+**API Version Header Middleware:**
+```typescript
+// File: apps/api/src/middleware/apiVersion.ts
+import { createMiddleware } from 'hono/factory';
+
+export const apiVersionMiddleware = createMiddleware(async (c, next) => {
+  // Check for version header override
+  const versionHeader = c.req.header('x-api-version');
+
+  if (versionHeader) {
+    c.set('apiVersion' as never, versionHeader);
+  }
+
+  // Set response version header
+  c.header('X-API-Version', '1.0');
+
+  await next();
+});
+```
+
+---
+
+### 2.20 Input Sanitization
+
+Sanitize user input to prevent XSS and injection attacks.
+
+**File: `apps/api/src/lib/sanitize.ts`**
+```typescript
+import createDOMPurify from 'dompurify';
+import { JSDOM } from 'jsdom';
+
+const window = new JSDOM('').window;
+const DOMPurify = createDOMPurify(window);
+
+// Configure DOMPurify
+DOMPurify.setConfig({
+  ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'br', 'ul', 'ol', 'li', 'code', 'pre'],
+  ALLOWED_ATTR: ['href', 'target', 'rel'],
+  ALLOW_DATA_ATTR: false,
+  ADD_ATTR: ['target'],
+});
+
+/**
+ * Sanitize HTML content from user input
+ */
+export function sanitizeHtml(dirty: string): string {
+  return DOMPurify.sanitize(dirty, { RETURN_DOM: false }) as string;
+}
+
+/**
+ * Sanitize string for safe display (escape HTML entities)
+ */
+export function escapeHtml(str: string): string {
+  const htmlEscapes: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  };
+  return str.replace(/[&<>"']/g, (char) => htmlEscapes[char]);
+}
+
+/**
+ * Sanitize file path to prevent directory traversal
+ */
+export function sanitizePath(inputPath: string): string {
+  // Remove null bytes
+  let sanitized = inputPath.replace(/\0/g, '');
+
+  // Normalize path separators
+  sanitized = sanitized.replace(/\\/g, '/');
+
+  // Remove directory traversal attempts
+  sanitized = sanitized.replace(/\.{2,}/g, '.');
+
+  // Remove leading slashes
+  sanitized = sanitized.replace(/^\/+/, '');
+
+  return sanitized;
+}
+
+/**
+ * Sanitize object keys and string values recursively
+ */
+export function sanitizeObject<T extends Record<string, unknown>>(obj: T): T {
+  const sanitized: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(obj)) {
+    const sanitizedKey = escapeHtml(key);
+
+    if (typeof value === 'string') {
+      sanitized[sanitizedKey] = sanitizeHtml(value);
+    } else if (Array.isArray(value)) {
+      sanitized[sanitizedKey] = value.map((item) =>
+        typeof item === 'string' ? sanitizeHtml(item) :
+        typeof item === 'object' && item !== null ? sanitizeObject(item as Record<string, unknown>) :
+        item
+      );
+    } else if (typeof value === 'object' && value !== null) {
+      sanitized[sanitizedKey] = sanitizeObject(value as Record<string, unknown>);
+    } else {
+      sanitized[sanitizedKey] = value;
+    }
+  }
+
+  return sanitized as T;
+}
+```
+
+---
+
+## Performance Optimization
+
+### 2.21 Connection Pooling
+
+Configure Drizzle connection pool for optimal database performance.
+
+**File: `apps/api/src/db/index.ts`** (updated)
+```typescript
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { Pool, type PoolConfig } from 'pg';
+
+import * as schema from './schema';
+
+const poolConfig: PoolConfig = {
+  connectionString: process.env.DATABASE_URL,
+
+  // Pool sizing
+  min: parseInt(process.env.DB_POOL_MIN || '2'),
+  max: parseInt(process.env.DB_POOL_MAX || '10'),
+
+  // Timeouts
+  idleTimeoutMillis: 30000,           // Close idle connections after 30s
+  connectionTimeoutMillis: 5000,       // Fail if can't connect in 5s
+  allowExitOnIdle: false,              // Keep pool alive
+
+  // Statement timeout (prevent runaway queries)
+  statement_timeout: 30000,            // 30 second query timeout
+};
+
+export const pool = new Pool(poolConfig);
+
+// Connection event logging
+pool.on('connect', (client) => {
+  console.log('[DB] New client connected');
+});
+
+pool.on('error', (err) => {
+  console.error('[DB] Unexpected error on idle client:', err);
+});
+
+pool.on('remove', () => {
+  console.log('[DB] Client removed from pool');
+});
+
+export const db = drizzle(pool, { schema });
+
+// Health check query
+export async function checkDatabaseHealth(): Promise<{
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  latencyMs: number;
+  poolSize: number;
+  idleCount: number;
+  waitingCount: number;
+}> {
+  const start = Date.now();
+
+  try {
+    await pool.query('SELECT 1');
+    const latencyMs = Date.now() - start;
+
+    return {
+      status: latencyMs < 100 ? 'healthy' : 'degraded',
+      latencyMs,
+      poolSize: pool.totalCount,
+      idleCount: pool.idleCount,
+      waitingCount: pool.waitingCount,
+    };
+  } catch (error) {
+    return {
+      status: 'unhealthy',
+      latencyMs: Date.now() - start,
+      poolSize: pool.totalCount,
+      idleCount: pool.idleCount,
+      waitingCount: pool.waitingCount,
+    };
+  }
+}
+
+// Graceful shutdown
+export async function closeDatabase(): Promise<void> {
+  await pool.end();
+  console.log('[DB] Pool closed');
+}
+```
+
+---
+
+### 2.22 Database Indexes
+
+Recommended indexes for common query patterns.
+
+**File: `apps/api/drizzle/0002_add_indexes.sql`**
+```sql
+-- Performance indexes for common queries
+
+-- Projects: list by owner, filter by status
+CREATE INDEX IF NOT EXISTS idx_projects_owner_status
+  ON projects (owner_id, status)
+  WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_projects_updated
+  ON projects (updated_at DESC)
+  WHERE deleted_at IS NULL;
+
+-- Assessments: list by project
+CREATE INDEX IF NOT EXISTS idx_assessments_project
+  ON assessments (project_id, updated_at DESC)
+  WHERE deleted_at IS NULL;
+
+-- Factors: query by assessment and domain
+CREATE INDEX IF NOT EXISTS idx_factors_assessment_domain
+  ON factors (assessment_id, domain, sort_order);
+
+-- Factor evidence: query by factor
+CREATE INDEX IF NOT EXISTS idx_factor_evidence_factor
+  ON factor_evidence (factor_id, created_at DESC);
+
+-- Threats: query by assessment, filter by status
+CREATE INDEX IF NOT EXISTS idx_threats_assessment_status
+  ON threats (assessment_id, status)
+  WHERE deleted_at IS NULL;
+
+-- Organization members: query membership
+CREATE INDEX IF NOT EXISTS idx_org_members_user
+  ON organization_members (user_id, organization_id);
+
+CREATE INDEX IF NOT EXISTS idx_org_members_org
+  ON organization_members (organization_id, role);
+
+-- Feed items: time-series queries with location
+CREATE INDEX IF NOT EXISTS idx_feed_items_project_time
+  ON feed_items (project_id, timestamp DESC);
+
+CREATE INDEX IF NOT EXISTS idx_feed_items_type_time
+  ON feed_items (type, timestamp DESC);
+
+-- Partial index for unprocessed items
+CREATE INDEX IF NOT EXISTS idx_feed_items_unprocessed
+  ON feed_items (project_id, created_at)
+  WHERE processed_at IS NULL;
+
+-- GIN index for JSONB metadata searches
+CREATE INDEX IF NOT EXISTS idx_feed_items_metadata
+  ON feed_items USING GIN (metadata);
+
+-- Documents: full-text search
+CREATE INDEX IF NOT EXISTS idx_documents_title_trgm
+  ON documents USING GIN (title gin_trgm_ops);
+
+-- Users: email lookup (already unique, but explicit)
+CREATE INDEX IF NOT EXISTS idx_users_email_lower
+  ON users (LOWER(email));
+
+-- Audit log: time-series with user filter
+CREATE INDEX IF NOT EXISTS idx_audit_log_user_time
+  ON audit_log (user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_audit_log_resource
+  ON audit_log (resource_type, resource_id, created_at DESC);
+```
+
+---
+
+### 2.23 Response Compression
+
+Enable Brotli and gzip compression for API responses.
+
+**File: `apps/api/src/middleware/compression.ts`**
+```typescript
+import { createMiddleware } from 'hono/factory';
+import { compress } from 'hono/compress';
+
+// Minimum response size to compress (1KB)
+const MIN_SIZE = 1024;
+
+// Content types to compress
+const COMPRESSIBLE_TYPES = [
+  'application/json',
+  'text/plain',
+  'text/html',
+  'text/css',
+  'application/javascript',
+  'application/xml',
+  'text/xml',
+];
+
+export const compressionMiddleware = compress({
+  encoding: 'gzip', // Hono supports 'gzip' | 'deflate'
+});
+
+// Custom compression with size threshold
+export const smartCompression = createMiddleware(async (c, next) => {
+  await next();
+
+  // Skip if already compressed or no body
+  const contentEncoding = c.res.headers.get('content-encoding');
+  if (contentEncoding) return;
+
+  const contentType = c.res.headers.get('content-type') || '';
+  const contentLength = c.res.headers.get('content-length');
+
+  // Check if compressible type
+  const isCompressible = COMPRESSIBLE_TYPES.some((type) =>
+    contentType.includes(type)
+  );
+
+  if (!isCompressible) return;
+
+  // Check minimum size
+  if (contentLength && parseInt(contentLength) < MIN_SIZE) return;
+
+  // Let the compression middleware handle it
+  // This is handled by Hono's built-in compress
+});
+```
+
+**Updated app.ts with compression:**
+```typescript
+import { compress } from 'hono/compress';
+
+// Add compression early in middleware stack
+app.use('*', compress());
+```
+
+---
+
+### 2.24 Redis Caching Layer
+
+Cache-aside pattern for frequently accessed data.
+
+**File: `apps/api/src/lib/cache.ts`**
+```typescript
+import { redis } from './redis';
+
+interface CacheOptions {
+  ttl?: number;           // TTL in seconds
+  prefix?: string;        // Key prefix
+  serialize?: boolean;    // JSON serialize (default true)
+}
+
+const DEFAULT_TTL = 300; // 5 minutes
+const CACHE_PREFIX = 'cache:';
+
+/**
+ * Get from cache or fetch and cache
+ */
+export async function cacheGet<T>(
+  key: string,
+  fetcher: () => Promise<T>,
+  options: CacheOptions = {}
+): Promise<T> {
+  const { ttl = DEFAULT_TTL, prefix = CACHE_PREFIX, serialize = true } = options;
+  const cacheKey = `${prefix}${key}`;
+
+  // Try cache first
+  const cached = await redis.get(cacheKey);
+
+  if (cached !== null) {
+    return serialize ? JSON.parse(cached) : (cached as T);
+  }
+
+  // Fetch fresh data
+  const data = await fetcher();
+
+  // Cache the result
+  const value = serialize ? JSON.stringify(data) : (data as string);
+  await redis.setex(cacheKey, ttl, value);
+
+  return data;
+}
+
+/**
+ * Invalidate cache by key or pattern
+ */
+export async function cacheInvalidate(pattern: string): Promise<number> {
+  const keys = await redis.keys(`${CACHE_PREFIX}${pattern}`);
+
+  if (keys.length === 0) return 0;
+
+  return redis.del(...keys);
+}
+
+/**
+ * Invalidate specific key
+ */
+export async function cacheDelete(key: string): Promise<void> {
+  await redis.del(`${CACHE_PREFIX}${key}`);
+}
+
+/**
+ * Set cache value directly
+ */
+export async function cacheSet<T>(
+  key: string,
+  value: T,
+  options: CacheOptions = {}
+): Promise<void> {
+  const { ttl = DEFAULT_TTL, prefix = CACHE_PREFIX, serialize = true } = options;
+  const cacheKey = `${prefix}${key}`;
+  const data = serialize ? JSON.stringify(value) : (value as string);
+
+  await redis.setex(cacheKey, ttl, data);
+}
+
+/**
+ * Cache decorator for service methods
+ */
+export function cached(keyFn: (...args: any[]) => string, ttl = DEFAULT_TTL) {
+  return function (
+    target: any,
+    propertyKey: string,
+    descriptor: PropertyDescriptor
+  ) {
+    const originalMethod = descriptor.value;
+
+    descriptor.value = async function (...args: any[]) {
+      const key = keyFn(...args);
+      return cacheGet(key, () => originalMethod.apply(this, args), { ttl });
+    };
+
+    return descriptor;
+  };
+}
+
+// Common cache key helpers
+export const cacheKeys = {
+  user: (id: string) => `user:${id}`,
+  project: (id: string) => `project:${id}`,
+  projectList: (userId: string) => `projects:${userId}`,
+  assessment: (id: string) => `assessment:${id}`,
+  factors: (assessmentId: string) => `factors:${assessmentId}`,
+};
+```
+
+---
+
+### 2.25 Circuit Breaker for External APIs
+
+Prevent cascading failures when external services (Claude, OpenAI) are down.
+
+**File: `apps/api/src/lib/circuitBreaker.ts`**
+```typescript
+type CircuitState = 'closed' | 'open' | 'half-open';
+
+interface CircuitBreakerOptions {
+  failureThreshold: number;    // Failures before opening
+  resetTimeout: number;        // Ms before trying half-open
+  halfOpenRequests: number;    // Requests to test in half-open
+  timeout?: number;            // Request timeout in ms
+}
+
+interface CircuitStats {
+  failures: number;
+  successes: number;
+  lastFailure: number;
+  state: CircuitState;
+}
+
+const DEFAULT_OPTIONS: CircuitBreakerOptions = {
+  failureThreshold: 5,
+  resetTimeout: 30000,    // 30 seconds
+  halfOpenRequests: 3,
+  timeout: 30000,         // 30 second timeout
+};
+
+export class CircuitBreaker {
+  private stats: CircuitStats = {
+    failures: 0,
+    successes: 0,
+    lastFailure: 0,
+    state: 'closed',
+  };
+
+  private options: CircuitBreakerOptions;
+  private halfOpenAttempts = 0;
+
+  constructor(
+    private name: string,
+    options: Partial<CircuitBreakerOptions> = {}
+  ) {
+    this.options = { ...DEFAULT_OPTIONS, ...options };
+  }
+
+  async execute<T>(fn: () => Promise<T>, fallback?: () => T): Promise<T> {
+    // Check if circuit should transition
+    this.checkState();
+
+    if (this.stats.state === 'open') {
+      console.warn(`[CircuitBreaker:${this.name}] Circuit open, rejecting request`);
+
+      if (fallback) {
+        return fallback();
+      }
+
+      throw new CircuitOpenError(`Circuit breaker open for ${this.name}`);
+    }
+
+    try {
+      // Execute with timeout
+      const result = await this.executeWithTimeout(fn);
+      this.onSuccess();
+      return result;
+    } catch (error) {
+      this.onFailure(error);
+      throw error;
+    }
+  }
+
+  private async executeWithTimeout<T>(fn: () => Promise<T>): Promise<T> {
+    if (!this.options.timeout) {
+      return fn();
+    }
+
+    return Promise.race([
+      fn(),
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error(`Timeout after ${this.options.timeout}ms`)),
+          this.options.timeout
+        )
+      ),
+    ]);
+  }
+
+  private checkState(): void {
+    if (this.stats.state === 'open') {
+      const elapsed = Date.now() - this.stats.lastFailure;
+
+      if (elapsed >= this.options.resetTimeout) {
+        console.log(`[CircuitBreaker:${this.name}] Transitioning to half-open`);
+        this.stats.state = 'half-open';
+        this.halfOpenAttempts = 0;
+      }
+    }
+  }
+
+  private onSuccess(): void {
+    if (this.stats.state === 'half-open') {
+      this.halfOpenAttempts++;
+
+      if (this.halfOpenAttempts >= this.options.halfOpenRequests) {
+        console.log(`[CircuitBreaker:${this.name}] Transitioning to closed`);
+        this.stats.state = 'closed';
+        this.stats.failures = 0;
+        this.stats.successes = 0;
+      }
+    }
+
+    this.stats.successes++;
+  }
+
+  private onFailure(error: unknown): void {
+    this.stats.failures++;
+    this.stats.lastFailure = Date.now();
+
+    console.error(`[CircuitBreaker:${this.name}] Failure #${this.stats.failures}:`, error);
+
+    if (this.stats.state === 'half-open') {
+      console.log(`[CircuitBreaker:${this.name}] Half-open test failed, reopening`);
+      this.stats.state = 'open';
+      return;
+    }
+
+    if (this.stats.failures >= this.options.failureThreshold) {
+      console.log(`[CircuitBreaker:${this.name}] Threshold reached, opening circuit`);
+      this.stats.state = 'open';
+    }
+  }
+
+  getStats(): CircuitStats {
+    return { ...this.stats };
+  }
+
+  reset(): void {
+    this.stats = {
+      failures: 0,
+      successes: 0,
+      lastFailure: 0,
+      state: 'closed',
+    };
+  }
+}
+
+export class CircuitOpenError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CircuitOpenError';
+  }
+}
+
+// Pre-configured circuit breakers for external services
+export const circuitBreakers = {
+  claude: new CircuitBreaker('claude', {
+    failureThreshold: 3,
+    resetTimeout: 60000,
+    timeout: 60000,
+  }),
+  openai: new CircuitBreaker('openai', {
+    failureThreshold: 3,
+    resetTimeout: 60000,
+    timeout: 60000,
+  }),
+  newsApi: new CircuitBreaker('news-api', {
+    failureThreshold: 5,
+    resetTimeout: 30000,
+    timeout: 10000,
+  }),
+};
+```
+
+---
+
+## Operational Concerns
+
+### 2.26 Deep Health Checks
+
+Comprehensive health endpoint with dependency checks.
+
+**File: `apps/api/src/routes/health.ts`**
+```typescript
+import { Hono } from 'hono';
+
+import { checkDatabaseHealth } from '../db';
+import { redis } from '../lib/redis';
+import { circuitBreakers } from '../lib/circuitBreaker';
+
+const health = new Hono();
+
+interface HealthCheckResult {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  timestamp: string;
+  version: string;
+  uptime: number;
+  checks: {
+    database: {
+      status: string;
+      latencyMs: number;
+      poolSize?: number;
+      idleCount?: number;
+    };
+    redis: {
+      status: string;
+      latencyMs: number;
+    };
+    external: Record<string, {
+      status: string;
+      circuit: string;
+      failures: number;
+    }>;
+  };
+}
+
+// Simple liveness probe
+health.get('/live', (c) => {
+  return c.json({ status: 'ok' });
+});
+
+// Readiness probe (can accept traffic)
+health.get('/ready', async (c) => {
+  try {
+    // Quick DB check
+    const dbHealth = await checkDatabaseHealth();
+
+    if (dbHealth.status === 'unhealthy') {
+      return c.json({ status: 'not ready', reason: 'database' }, 503);
+    }
+
+    return c.json({ status: 'ready' });
+  } catch {
+    return c.json({ status: 'not ready' }, 503);
+  }
+});
+
+// Detailed health check
+health.get('/health', async (c) => {
+  const startTime = Date.now();
+
+  // Check database
+  const dbHealth = await checkDatabaseHealth();
+
+  // Check Redis
+  let redisHealth: { status: string; latencyMs: number };
+  try {
+    const redisStart = Date.now();
+    await redis.ping();
+    redisHealth = {
+      status: 'healthy',
+      latencyMs: Date.now() - redisStart,
+    };
+  } catch {
+    redisHealth = {
+      status: 'unhealthy',
+      latencyMs: 0,
+    };
+  }
+
+  // Check circuit breakers
+  const externalHealth: Record<string, any> = {};
+  for (const [name, breaker] of Object.entries(circuitBreakers)) {
+    const stats = breaker.getStats();
+    externalHealth[name] = {
+      status: stats.state === 'closed' ? 'healthy' : stats.state,
+      circuit: stats.state,
+      failures: stats.failures,
+    };
+  }
+
+  // Determine overall status
+  const isDbHealthy = dbHealth.status !== 'unhealthy';
+  const isRedisHealthy = redisHealth.status === 'healthy';
+  const hasOpenCircuits = Object.values(circuitBreakers).some(
+    (b) => b.getStats().state === 'open'
+  );
+
+  let overallStatus: 'healthy' | 'degraded' | 'unhealthy';
+  if (!isDbHealthy) {
+    overallStatus = 'unhealthy';
+  } else if (!isRedisHealthy || hasOpenCircuits) {
+    overallStatus = 'degraded';
+  } else {
+    overallStatus = 'healthy';
+  }
+
+  const result: HealthCheckResult = {
+    status: overallStatus,
+    timestamp: new Date().toISOString(),
+    version: process.env.npm_package_version || '0.0.1',
+    uptime: process.uptime(),
+    checks: {
+      database: {
+        status: dbHealth.status,
+        latencyMs: dbHealth.latencyMs,
+        poolSize: dbHealth.poolSize,
+        idleCount: dbHealth.idleCount,
+      },
+      redis: redisHealth,
+      external: externalHealth,
+    },
+  };
+
+  const statusCode = overallStatus === 'unhealthy' ? 503 : 200;
+  return c.json(result, statusCode);
+});
+
+export { health };
+```
+
+---
+
+### 2.27 Graceful Shutdown
+
+Handle SIGTERM/SIGINT for clean shutdown.
+
+**File: `apps/api/src/index.ts`** (updated with graceful shutdown)
+```typescript
+import { serve } from '@hono/node-server';
+
+import { createApp } from './app';
+import { closeDatabase, pool } from './db';
+import { shutdownRedis } from './lib/redis';
+import { stopAllFeeds } from './feeds/scheduler';
+
+const app = createApp();
+const PORT = parseInt(process.env.PORT || '3001');
+
+let isShuttingDown = false;
+
+const server = serve({
+  fetch: app.fetch,
+  port: PORT,
+});
+
+console.log(`Server running on http://localhost:${PORT}`);
+
+// Graceful shutdown handler
+async function gracefulShutdown(signal: string) {
+  if (isShuttingDown) {
+    console.log('Shutdown already in progress...');
+    return;
+  }
+
+  isShuttingDown = true;
+  console.log(`\n${signal} received. Starting graceful shutdown...`);
+
+  const shutdownTimeout = setTimeout(() => {
+    console.error('Graceful shutdown timed out, forcing exit');
+    process.exit(1);
+  }, 30000); // 30 second timeout
+
+  try {
+    // 1. Stop accepting new connections
+    console.log('[Shutdown] Closing HTTP server...');
+    await new Promise<void>((resolve, reject) => {
+      server.close((err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    // 2. Stop feed scheduler
+    console.log('[Shutdown] Stopping feed scheduler...');
+    await stopAllFeeds();
+
+    // 3. Wait for in-flight requests (pool.waitingCount)
+    console.log('[Shutdown] Waiting for in-flight requests...');
+    await waitForInflightRequests();
+
+    // 4. Close database connections
+    console.log('[Shutdown] Closing database connections...');
+    await closeDatabase();
+
+    // 5. Close Redis connections
+    console.log('[Shutdown] Closing Redis connections...');
+    await shutdownRedis();
+
+    clearTimeout(shutdownTimeout);
+    console.log('[Shutdown] Graceful shutdown complete');
+    process.exit(0);
+  } catch (error) {
+    console.error('[Shutdown] Error during shutdown:', error);
+    clearTimeout(shutdownTimeout);
+    process.exit(1);
+  }
+}
+
+async function waitForInflightRequests(maxWaitMs = 10000): Promise<void> {
+  const startTime = Date.now();
+
+  while (pool.waitingCount > 0 || pool.totalCount > pool.idleCount) {
+    if (Date.now() - startTime > maxWaitMs) {
+      console.log('[Shutdown] Max wait time reached, proceeding...');
+      break;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+}
+
+// Register shutdown handlers
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Handle uncaught errors
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught exception:', error);
+  gracefulShutdown('uncaughtException');
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled rejection:', reason);
+});
+
+export { app };
+```
+
+---
+
+### 2.28 Structured Logging
+
+Production-ready logging with Pino.
+
+**File: `apps/api/src/lib/logger.ts`**
+```typescript
+import pino from 'pino';
+
+import { getRequestId } from '../middleware/correlation';
+
+// Sensitive fields to redact
+const REDACT_PATHS = [
+  'req.headers.authorization',
+  'req.headers.cookie',
+  'res.headers["set-cookie"]',
+  'password',
+  'passwordHash',
+  'token',
+  'accessToken',
+  'refreshToken',
+  'apiKey',
+  'secret',
+];
+
+export const logger = pino({
+  level: process.env.LOG_LEVEL || 'info',
+
+  // Production: JSON, Development: pretty print
+  transport: process.env.NODE_ENV === 'development'
+    ? { target: 'pino-pretty', options: { colorize: true } }
+    : undefined,
+
+  // Redact sensitive data
+  redact: {
+    paths: REDACT_PATHS,
+    censor: '[REDACTED]',
+  },
+
+  // Custom serializers
+  serializers: {
+    req: (req) => ({
+      method: req.method,
+      url: req.url,
+      headers: {
+        'user-agent': req.headers['user-agent'],
+        'content-type': req.headers['content-type'],
+      },
+    }),
+    res: (res) => ({
+      statusCode: res.statusCode,
+    }),
+    err: pino.stdSerializers.err,
+  },
+
+  // Base context
+  base: {
+    service: 'situation-monitor-api',
+    version: process.env.npm_package_version,
+  },
+
+  // Custom timestamp format
+  timestamp: pino.stdTimeFunctions.isoTime,
+});
+
+// Child logger with request context
+export function getRequestLogger() {
+  const requestId = getRequestId();
+  return logger.child({ requestId });
+}
+
+// Structured log helpers
+export const log = {
+  info: (msg: string, data?: object) => getRequestLogger().info(data, msg),
+  warn: (msg: string, data?: object) => getRequestLogger().warn(data, msg),
+  error: (msg: string, error?: Error, data?: object) =>
+    getRequestLogger().error({ err: error, ...data }, msg),
+  debug: (msg: string, data?: object) => getRequestLogger().debug(data, msg),
+
+  // HTTP request logging
+  request: (method: string, path: string, statusCode: number, durationMs: number) =>
+    getRequestLogger().info(
+      { method, path, statusCode, durationMs },
+      `${method} ${path} ${statusCode} ${durationMs}ms`
+    ),
+
+  // Database query logging
+  query: (query: string, durationMs: number) =>
+    getRequestLogger().debug({ query: query.slice(0, 200), durationMs }, 'DB query'),
+
+  // External API logging
+  external: (service: string, operation: string, durationMs: number, success: boolean) =>
+    getRequestLogger().info(
+      { service, operation, durationMs, success },
+      `External API: ${service}.${operation}`
+    ),
+};
+```
+
+**Request/Response Logging Middleware:**
+```typescript
+// File: apps/api/src/middleware/requestLogger.ts
+import { createMiddleware } from 'hono/factory';
+import { log } from '../lib/logger';
+
+export const requestLoggerMiddleware = createMiddleware(async (c, next) => {
+  const start = Date.now();
+
+  await next();
+
+  const duration = Date.now() - start;
+  const { method } = c.req;
+  const path = c.req.path;
+  const status = c.res.status;
+
+  log.request(method, path, status, duration);
+});
+```
+
+---
+
 ## API Endpoint Summary
 
 ### Authentication
@@ -1275,6 +2504,7 @@ export { routes };
 
 ## Acceptance Criteria
 
+### Core Functionality
 - [ ] All endpoints return proper JSON responses
 - [ ] JWT authentication works for protected routes
 - [ ] RBAC correctly restricts access based on roles
@@ -1285,6 +2515,27 @@ export { routes };
 - [ ] All CRUD operations work for projects and assessments
 - [ ] PMESII-PT factors can be created and updated
 
+### Security Hardening
+- [ ] Rate limiting uses Redis in production (scales across instances)
+- [ ] CSRF protection enabled for state-changing endpoints
+- [ ] All requests have correlation ID in logs
+- [ ] API versioning implemented with deprecation headers
+- [ ] Input sanitization prevents XSS and injection attacks
+- [ ] Sensitive data redacted from logs (passwords, tokens, API keys)
+
+### Performance
+- [ ] Database connection pool configured with proper sizing
+- [ ] Recommended indexes created for common queries
+- [ ] Response compression enabled for JSON responses
+- [ ] Redis caching layer functional for hot data paths
+- [ ] Circuit breaker prevents cascading failures from external APIs
+
+### Operational
+- [ ] Health check returns degraded state when dependencies fail
+- [ ] Graceful shutdown completes within 30 seconds
+- [ ] Liveness and readiness probes available for Kubernetes
+- [ ] Structured logging with Pino produces JSON in production
+
 ---
 
 ## Files to Create/Modify
@@ -1292,17 +2543,28 @@ export { routes };
 | Path | Description |
 |------|-------------|
 | `apps/api/src/app.ts` | Hono app configuration |
+| `apps/api/src/index.ts` | Entry point with graceful shutdown |
 | `apps/api/src/types/index.ts` | API type definitions |
 | `apps/api/src/lib/jwt.ts` | JWT utilities |
 | `apps/api/src/lib/password.ts` | Password hashing |
 | `apps/api/src/lib/errors.ts` | Custom error classes |
+| `apps/api/src/lib/sanitize.ts` | Input sanitization (XSS, path traversal) |
+| `apps/api/src/lib/cache.ts` | Redis caching layer |
+| `apps/api/src/lib/circuitBreaker.ts` | Circuit breaker for external APIs |
+| `apps/api/src/lib/logger.ts` | Structured logging with Pino |
 | `apps/api/src/middleware/auth.ts` | JWT auth middleware |
 | `apps/api/src/middleware/rbac.ts` | Role-based access control |
 | `apps/api/src/middleware/validation.ts` | Zod validation |
-| `apps/api/src/middleware/rateLimit.ts` | Rate limiting |
+| `apps/api/src/middleware/rateLimit.ts` | Redis-backed rate limiting |
 | `apps/api/src/middleware/errorHandler.ts` | Error handling |
-| `apps/api/src/routes/index.ts` | Route aggregation |
+| `apps/api/src/middleware/csrf.ts` | CSRF protection |
+| `apps/api/src/middleware/correlation.ts` | Request correlation IDs |
+| `apps/api/src/middleware/apiVersion.ts` | API versioning headers |
+| `apps/api/src/middleware/compression.ts` | Response compression |
+| `apps/api/src/middleware/requestLogger.ts` | Request/response logging |
+| `apps/api/src/routes/index.ts` | Route aggregation with versioning |
 | `apps/api/src/routes/auth.ts` | Authentication routes |
+| `apps/api/src/routes/health.ts` | Health check endpoints |
 | `apps/api/src/routes/projects.ts` | Project CRUD |
 | `apps/api/src/routes/assessments.ts` | Assessment CRUD |
 | `apps/api/src/routes/pmesii.ts` | PMESII-PT routes |
@@ -1310,6 +2572,8 @@ export { routes };
 | `apps/api/src/routes/cog.ts` | CoG routes |
 | `apps/api/src/routes/intel.ts` | Intel collection routes |
 | `apps/api/src/routes/indicators.ts` | Indicator routes |
+| `apps/api/src/db/index.ts` | Database with connection pooling |
+| `apps/api/drizzle/0002_add_indexes.sql` | Performance indexes migration |
 
 ---
 

@@ -40,14 +40,17 @@ This document covers TanStack Router setup, TanStack Query configuration, API cl
 | `apps/web/src/routes/_app.projects.tsx` | Projects list |
 | `apps/web/src/hooks/useAuth.ts` | Auth hook |
 | `apps/web/src/hooks/useToast.ts` | Toast notification hook |
-| `apps/web/src/lib/api.ts` | API client |
+| `apps/web/src/lib/api.ts` | API client with token refresh queue |
 | `apps/web/src/lib/queryClient.ts` | Query client config |
 | `apps/web/src/lib/pwa.ts` | PWA service worker registration |
+| `apps/web/src/lib/retry.ts` | Retry with exponential backoff |
+| `apps/web/src/lib/offlineQueue.ts` | Offline request queueing |
 | `apps/web/src/components/ui/form.tsx` | Form component primitives |
 | `apps/web/src/components/common/OfflineIndicator.tsx` | Offline status indicator |
 | `apps/web/src/features/auth/components/LoginForm.tsx` | Login form with validation |
 | `apps/web/src/features/auth/components/RegisterForm.tsx` | Register form with validation |
-| `apps/web/vite.config.ts` | Vite configuration with PWA |
+| `apps/web/vite.config.ts` | Vite configuration with PWA and CSP |
+| `apps/api/src/middleware/csp.ts` | Content Security Policy middleware |
 
 ---
 
@@ -1447,6 +1450,585 @@ function ProjectActions() {
 
 ---
 
+## Token Security Hardening
+
+### Secure Token Storage Options
+
+The current implementation stores tokens in localStorage. For enhanced security, consider these alternatives:
+
+**Option A: HttpOnly Cookies (Recommended for web)**
+
+**File: `apps/web/src/lib/api.ts`** (HttpOnly cookie variant)
+```typescript
+// API client that relies on HttpOnly cookies for auth
+class SecureApiClient {
+  async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    const url = `${API_BASE}${endpoint}`;
+
+    const response = await fetch(url, {
+      ...options,
+      credentials: 'include', // Include cookies
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    });
+
+    if (!response.ok) {
+      // Handle errors...
+    }
+
+    return response.json();
+  }
+}
+```
+
+**Backend cookie configuration:**
+```typescript
+// In auth routes - set HttpOnly cookie for refresh token
+setCookie(c, 'refresh_token', refreshToken, {
+  httpOnly: true,        // JavaScript cannot access
+  secure: true,          // HTTPS only
+  sameSite: 'Strict',    // No cross-site requests
+  path: '/api/auth',     // Only sent to auth endpoints
+  maxAge: 7 * 24 * 60 * 60, // 7 days
+});
+```
+
+**Option B: In-Memory with Refresh (Current + Improvements)**
+
+Keep access token in memory only (not localStorage), refresh automatically:
+
+```typescript
+class InMemoryAuthClient {
+  private accessToken: string | null = null;
+  private tokenExpiry: number = 0;
+
+  setTokens(access: string, refresh: string) {
+    this.accessToken = access;
+    this.tokenExpiry = Date.now() + 14 * 60 * 1000; // 14 minutes
+    // Only store refresh token in localStorage
+    localStorage.setItem('refreshToken', refresh);
+  }
+
+  async getAccessToken(): Promise<string | null> {
+    // Proactively refresh if expiring soon (1 min buffer)
+    if (this.accessToken && Date.now() > this.tokenExpiry - 60000) {
+      await this.refreshTokens();
+    }
+    return this.accessToken;
+  }
+}
+```
+
+---
+
+### Token Rotation
+
+Implement refresh token rotation to detect token theft:
+
+**File: `apps/api/src/routes/auth.ts`** (token rotation)
+```typescript
+auth.post('/refresh', validateBody(refreshSchema), async (c) => {
+  const { refreshToken } = await c.req.json();
+
+  try {
+    const payload = await verifyToken(refreshToken);
+
+    if (payload.type !== 'refresh') {
+      throw new UnauthorizedError('Invalid refresh token');
+    }
+
+    // Check if token was already used (rotation detection)
+    const tokenId = payload.jti;
+    const wasUsed = await redis.get(`used_refresh:${tokenId}`);
+
+    if (wasUsed) {
+      // Token reuse detected - possible theft!
+      // Invalidate all tokens for this user
+      await redis.set(`invalidate_user:${payload.sub}`, Date.now());
+      throw new UnauthorizedError('Token reuse detected. Please login again.');
+    }
+
+    // Mark token as used
+    await redis.setex(`used_refresh:${tokenId}`, 7 * 24 * 60 * 60, '1');
+
+    // Issue new token pair with new jti
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, payload.sub),
+    });
+
+    if (!user) {
+      throw new UnauthorizedError('User not found');
+    }
+
+    // New tokens with rotation
+    const newTokens = await generateTokenPair({
+      id: user.id,
+      email: user.email,
+      role: 'owner',
+    });
+
+    return c.json(newTokens);
+  } catch {
+    throw new UnauthorizedError('Invalid refresh token');
+  }
+});
+```
+
+---
+
+### Automatic Token Refresh with Request Queue
+
+Prevent multiple simultaneous refresh attempts:
+
+**File: `apps/web/src/lib/api.ts`** (request queue)
+```typescript
+class ApiClient {
+  private accessToken: string | null = null;
+  private refreshPromise: Promise<void> | null = null;
+  private failedQueue: Array<{
+    resolve: (value: void) => void;
+    reject: (reason: Error) => void;
+  }> = [];
+
+  private processQueue(error: Error | null) {
+    this.failedQueue.forEach((request) => {
+      if (error) {
+        request.reject(error);
+      } else {
+        request.resolve();
+      }
+    });
+    this.failedQueue = [];
+  }
+
+  async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    const url = `${API_BASE}${endpoint}`;
+
+    const makeRequest = async (): Promise<Response> => {
+      const token = this.accessToken;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      };
+
+      if (token) {
+        (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
+      }
+
+      return fetch(url, { ...options, headers });
+    };
+
+    let response = await makeRequest();
+
+    // Handle 401 - attempt token refresh
+    if (response.status === 401 && this.getRefreshToken()) {
+      // If already refreshing, wait for it
+      if (this.refreshPromise) {
+        await new Promise<void>((resolve, reject) => {
+          this.failedQueue.push({ resolve, reject });
+        });
+        response = await makeRequest();
+      } else {
+        // Start refresh process
+        this.refreshPromise = this.refreshTokens()
+          .then(() => {
+            this.processQueue(null);
+          })
+          .catch((error) => {
+            this.processQueue(error);
+            throw error;
+          })
+          .finally(() => {
+            this.refreshPromise = null;
+          });
+
+        try {
+          await this.refreshPromise;
+          response = await makeRequest();
+        } catch {
+          // Refresh failed, redirect to login
+          this.clearTokens();
+          window.location.href = '/login';
+          throw new Error('Session expired');
+        }
+      }
+    }
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({
+        error: { message: 'Request failed', code: 'UNKNOWN' },
+      }));
+
+      throw new ApiError(
+        response.status,
+        error.error?.code || 'UNKNOWN',
+        error.error?.message || 'Request failed'
+      );
+    }
+
+    return response.json();
+  }
+
+  private async refreshTokens(): Promise<void> {
+    const refreshToken = this.getRefreshToken();
+
+    if (!refreshToken) {
+      throw new Error('No refresh token');
+    }
+
+    const response = await fetch(`${API_BASE}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Token refresh failed');
+    }
+
+    const data = await response.json();
+    this.setAccessToken(data.accessToken);
+    localStorage.setItem('refreshToken', data.refreshToken);
+  }
+
+  private getRefreshToken(): string | null {
+    return localStorage.getItem('refreshToken');
+  }
+
+  private clearTokens(): void {
+    this.accessToken = null;
+    localStorage.removeItem('refreshToken');
+    queryClient.clear();
+  }
+}
+```
+
+---
+
+### XSS Prevention with CSP Headers
+
+Configure Content Security Policy to prevent XSS:
+
+**File: `apps/api/src/middleware/csp.ts`**
+```typescript
+import { createMiddleware } from 'hono/factory';
+
+export const cspMiddleware = createMiddleware(async (c, next) => {
+  await next();
+
+  // Set CSP header for HTML responses
+  const contentType = c.res.headers.get('content-type') || '';
+
+  if (contentType.includes('text/html')) {
+    const csp = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline'", // Adjust based on needs
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: https:",
+      "font-src 'self'",
+      "connect-src 'self' wss: https:",
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join('; ');
+
+    c.header('Content-Security-Policy', csp);
+  }
+});
+```
+
+**Vite config for development:**
+```typescript
+// vite.config.ts
+export default defineConfig({
+  server: {
+    headers: {
+      'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://localhost:* http://localhost:*",
+    },
+  },
+});
+```
+
+---
+
+## API Client Resilience
+
+### Request Timeout Configuration
+
+**File: `apps/web/src/lib/api.ts`** (timeout support)
+```typescript
+const DEFAULT_TIMEOUT = 30000; // 30 seconds
+
+async request<T>(
+  endpoint: string,
+  options: RequestInit & { timeout?: number } = {}
+): Promise<T> {
+  const { timeout = DEFAULT_TIMEOUT, ...fetchOptions } = options;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      ...fetchOptions,
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...fetchOptions.headers,
+      },
+    });
+
+    return this.handleResponse<T>(response);
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new ApiError(408, 'TIMEOUT', `Request timed out after ${timeout}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+```
+
+---
+
+### Retry with Exponential Backoff + Jitter
+
+**File: `apps/web/src/lib/retry.ts`**
+```typescript
+interface RetryOptions {
+  maxRetries: number;
+  baseDelayMs: number;
+  maxDelayMs: number;
+  retryableStatuses: number[];
+}
+
+const DEFAULT_RETRY_OPTIONS: RetryOptions = {
+  maxRetries: 3,
+  baseDelayMs: 1000,
+  maxDelayMs: 10000,
+  retryableStatuses: [408, 429, 500, 502, 503, 504],
+};
+
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  options: Partial<RetryOptions> = {}
+): Promise<T> {
+  const { maxRetries, baseDelayMs, maxDelayMs, retryableStatuses } = {
+    ...DEFAULT_RETRY_OPTIONS,
+    ...options,
+  };
+
+  let lastError: Error | undefined;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error as Error;
+
+      // Don't retry non-retryable errors
+      if (error instanceof ApiError) {
+        if (!retryableStatuses.includes(error.status)) {
+          throw error;
+        }
+      }
+
+      // Don't retry after max attempts
+      if (attempt === maxRetries) {
+        throw error;
+      }
+
+      // Calculate delay with exponential backoff + jitter
+      const exponentialDelay = baseDelayMs * Math.pow(2, attempt);
+      const jitter = Math.random() * baseDelayMs;
+      const delay = Math.min(exponentialDelay + jitter, maxDelayMs);
+
+      console.log(`Retry attempt ${attempt + 1}/${maxRetries} after ${delay}ms`);
+      await sleep(delay);
+    }
+  }
+
+  throw lastError;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Usage with API client
+class ResilientApiClient extends ApiClient {
+  async get<T>(endpoint: string, options?: RequestInit): Promise<T> {
+    return withRetry(() => super.get<T>(endpoint, options));
+  }
+
+  async post<T>(endpoint: string, data?: unknown, options?: RequestInit): Promise<T> {
+    // Don't retry POST by default (not idempotent)
+    return super.post<T>(endpoint, data, options);
+  }
+}
+```
+
+---
+
+### Offline Request Queueing
+
+Queue mutations when offline and replay when back online:
+
+**File: `apps/web/src/lib/offlineQueue.ts`**
+```typescript
+interface QueuedRequest {
+  id: string;
+  endpoint: string;
+  method: string;
+  body?: unknown;
+  timestamp: number;
+}
+
+const QUEUE_KEY = 'offline_request_queue';
+
+export class OfflineQueue {
+  private isOnline = navigator.onLine;
+
+  constructor() {
+    window.addEventListener('online', () => this.handleOnline());
+    window.addEventListener('offline', () => this.handleOffline());
+  }
+
+  private handleOnline() {
+    this.isOnline = true;
+    this.processQueue();
+  }
+
+  private handleOffline() {
+    this.isOnline = false;
+  }
+
+  async enqueue(request: Omit<QueuedRequest, 'id' | 'timestamp'>): Promise<void> {
+    const queue = this.getQueue();
+
+    queue.push({
+      ...request,
+      id: crypto.randomUUID(),
+      timestamp: Date.now(),
+    });
+
+    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+  }
+
+  private getQueue(): QueuedRequest[] {
+    const stored = localStorage.getItem(QUEUE_KEY);
+    return stored ? JSON.parse(stored) : [];
+  }
+
+  private setQueue(queue: QueuedRequest[]): void {
+    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+  }
+
+  async processQueue(): Promise<void> {
+    if (!this.isOnline) return;
+
+    const queue = this.getQueue();
+
+    if (queue.length === 0) return;
+
+    console.log(`Processing ${queue.length} queued requests`);
+
+    const results = await Promise.allSettled(
+      queue.map(async (request) => {
+        const response = await fetch(`${API_BASE}${request.endpoint}`, {
+          method: request.method,
+          headers: { 'Content-Type': 'application/json' },
+          body: request.body ? JSON.stringify(request.body) : undefined,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Request failed: ${response.status}`);
+        }
+
+        return request.id;
+      })
+    );
+
+    // Remove successful requests from queue
+    const successIds = results
+      .filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled')
+      .map((r) => r.value);
+
+    const remainingQueue = queue.filter((r) => !successIds.includes(r.id));
+    this.setQueue(remainingQueue);
+
+    if (remainingQueue.length > 0) {
+      console.log(`${remainingQueue.length} requests still pending`);
+    }
+  }
+
+  // For mutations that can be queued
+  async queueableRequest<T>(
+    endpoint: string,
+    method: string,
+    body?: unknown
+  ): Promise<T | { queued: true }> {
+    if (!this.isOnline) {
+      await this.enqueue({ endpoint, method, body });
+      return { queued: true };
+    }
+
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
+    return response.json();
+  }
+}
+
+export const offlineQueue = new OfflineQueue();
+```
+
+---
+
+### API Version Header Handling
+
+Handle API version deprecation warnings:
+
+**File: `apps/web/src/lib/api.ts`** (version handling)
+```typescript
+const API_VERSION = '1.0';
+
+async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const response = await fetch(`${API_BASE}${endpoint}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Version': API_VERSION,
+      ...options.headers,
+    },
+  });
+
+  // Check for deprecation warnings
+  const deprecation = response.headers.get('Deprecation');
+  const sunset = response.headers.get('Sunset');
+
+  if (deprecation === 'true') {
+    console.warn(
+      `API Deprecation Warning: This endpoint will be sunset on ${sunset}. ` +
+      `Please migrate to ${response.headers.get('Link')}`
+    );
+
+    // Optionally notify user or log to analytics
+    // analytics.track('api_deprecation_warning', { endpoint, sunset });
+  }
+
+  return this.handleResponse<T>(response);
+}
+```
+
+---
+
 ## Acceptance Criteria
 
 ### Routing & Navigation
@@ -1469,6 +2051,20 @@ function ProjectActions() {
 - [ ] Logout clears all tokens and query cache
 - [ ] Protected routes redirect unauthenticated users to login
 - [ ] Login page accepts `?redirect=` query param for return URL
+
+### Token Security
+- [ ] Token refresh automatically retries failed requests
+- [ ] Request queue prevents multiple simultaneous refresh attempts
+- [ ] Token rotation detects and handles token reuse
+- [ ] XSS cannot steal authentication tokens (if using HttpOnly cookies)
+- [ ] CSP headers configured to prevent script injection
+
+### API Client Resilience
+- [ ] API client handles network failures gracefully
+- [ ] Request timeout prevents hung requests
+- [ ] Exponential backoff with jitter on retryable errors
+- [ ] Offline mutations queued and replayed on reconnection
+- [ ] API version deprecation warnings logged appropriately
 
 ### Projects Page
 - [ ] Projects list loads and displays correctly
