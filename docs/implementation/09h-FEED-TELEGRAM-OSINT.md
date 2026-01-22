@@ -8,6 +8,8 @@ This document covers Telegram channel ingestion for OSINT (Open Source Intellige
 
 **Tasks Covered:** 9.26, 9.27, 9.28
 
+> **Setup Guide:** For step-by-step configuration instructions, see [TELEGRAM-SETUP.md](../guides/TELEGRAM-SETUP.md)
+
 ---
 
 ## Why Telegram for OSINT

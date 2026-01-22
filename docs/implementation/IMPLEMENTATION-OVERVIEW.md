@@ -128,6 +128,14 @@ Phase 9 is split into focused sub-documents for smaller implementation units:
 | [09i-REALTIME-PROCESSING.md](./09i-REALTIME-PROCESSING.md) | Normalizer service, Tripwire worker, Live feed panel, Timeline scrubber | 9.9-9.11, 9.14-9.17 |
 | [09j-REALTIME-OPERATIONS.md](./09j-REALTIME-OPERATIONS.md) | Feed management API, data retention, WebSocket reconnection, health monitoring | — |
 
+### Setup Guides
+
+Step-by-step configuration guides for specific integrations:
+
+| Guide | Scope |
+|-------|-------|
+| [TELEGRAM-SETUP.md](../guides/TELEGRAM-SETUP.md) | Telegram OSINT feed: MTProto credentials, session setup, channel configuration, translation |
+
 ---
 
 ## Dashboard Suite Reference

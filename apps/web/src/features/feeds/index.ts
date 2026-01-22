@@ -26,3 +26,7 @@ export { NewsFeedConfig } from './components/NewsFeedConfig';
 
 // Analytics panels
 export { CivilUnrestAnalyticsPanel } from './panels/CivilUnrestAnalyticsPanel';
+
+// Telegram OSINT
+export { TelegramFeedPanel } from './components/TelegramFeedPanel';
+export type { TelegramFeedPanelProps } from './components/TelegramFeedPanel';

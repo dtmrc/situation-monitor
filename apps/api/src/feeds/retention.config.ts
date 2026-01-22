@@ -67,6 +67,30 @@ export const retentionPolicies: Record<FeedType, RetentionPolicy> = {
     days: 30,
     keepAlerting: true,
   },
+
+  // Critical infrastructure monitoring
+  infrastructure: {
+    days: 365,
+    keepAlerting: true,
+    highSeverityMultiplier: 2,
+  },
+
+  satellite_fire: {
+    days: 180,
+    keepAlerting: true,
+    highSeverityMultiplier: 1.5,
+  },
+
+  traffic_camera: {
+    days: 7,
+    keepAlerting: true,
+  },
+
+  citizen_report: {
+    days: 30,
+    keepAlerting: true,
+    highSeverityMultiplier: 2,
+  },
 };
 
 /**
