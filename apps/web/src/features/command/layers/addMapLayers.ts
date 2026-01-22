@@ -1,6 +1,6 @@
 import type mapboxgl from 'mapbox-gl';
 
-import type { Actor, Alert, MapMarker, NAI, Track } from '../types';
+import type { Actor, Alert, FlightCategory, MapMarker, NAI, Track } from '../types';
 
 /**
  * Layer system for the Command Map
@@ -28,6 +28,49 @@ const COLORS = {
   orange: '#ff6b35',
   muted: '#525252',
 } as const;
+
+// Flight category colors for aircraft visualization
+const FLIGHT_COLORS: Record<FlightCategory, string> = {
+  commercial: '#00d4ff', // Cyan - commercial airliners
+  military: '#a855f7', // Purple - military aircraft
+  emergency: '#ff3333', // Red - emergency squawk
+  private: '#00ff88', // Green - private/GA
+  helicopter: '#ffaa00', // Amber - rotorcraft
+  cargo: '#3b82f6', // Blue - cargo aircraft
+  uav: '#ff6b35', // Orange - drones/UAVs
+  unknown: '#6b7280', // Gray - unknown
+};
+
+/**
+ * Airplane SVG icon as a data URL for Mapbox
+ * Points upward (north) - Mapbox will rotate based on heading property
+ */
+const AIRPLANE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="white">
+  <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
+</svg>`;
+
+/**
+ * Load custom icons into Mapbox map
+ * Must be called before adding layers that use these icons
+ */
+export function loadMapIcons(map: mapboxgl.Map): Promise<void> {
+  return new Promise((resolve, reject) => {
+    // Create image from SVG data URL
+    const img = new Image(24, 24);
+    img.onload = () => {
+      // Add the image as an SDF icon for dynamic coloring
+      if (!map.hasImage('airplane-icon')) {
+        map.addImage('airplane-icon', img, { sdf: true });
+      }
+      resolve();
+    };
+    img.onerror = (err) => {
+      console.error('Failed to load airplane icon:', err);
+      reject(err);
+    };
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(AIRPLANE_SVG)}`;
+  });
+}
 
 /** ═══════════════════════════════════════════════════════════════════════════
  *  EMPTY GEOJSON TEMPLATES
@@ -350,26 +393,92 @@ function addMaritimeLayer(map: mapboxgl.Map): void {
 }
 
 function addFlightLayer(map: mapboxgl.Map): void {
-  // Flight track points
+  // Emergency flight pulse ring (for aircraft squawking emergency)
+  map.addLayer({
+    id: 'command-flight-emergency-pulse',
+    type: 'circle',
+    source: 'command-flight',
+    filter: ['==', ['get', 'isEmergency'], true],
+    paint: {
+      'circle-radius': 18,
+      'circle-color': COLORS.red,
+      'circle-opacity': 0.3,
+      'circle-stroke-width': 2,
+      'circle-stroke-color': COLORS.red,
+      'circle-stroke-opacity': 0.6,
+    },
+  });
+
+  // Flight track airplane icons with category-based coloring
   map.addLayer({
     id: 'command-flight',
     type: 'symbol',
     source: 'command-flight',
     layout: {
-      'icon-image': 'airport-15',
-      'icon-size': 1,
+      'icon-image': 'airplane-icon',
+      'icon-size': [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        4,
+        0.6, // Small at low zoom
+        8,
+        0.8,
+        12,
+        1.0, // Full size at high zoom
+      ],
       'icon-rotate': ['get', 'heading'],
+      'icon-rotation-alignment': 'map',
       'icon-allow-overlap': true,
+      'icon-ignore-placement': true,
       'text-field': ['get', 'callsign'],
       'text-font': ['DIN Pro Medium', 'Arial Unicode MS Regular'],
       'text-size': 9,
-      'text-offset': [0, 1.2],
+      'text-offset': [0, 1.5],
       'text-anchor': 'top',
       'text-optional': true,
     },
     paint: {
-      'icon-color': COLORS.cyan,
-      'text-color': COLORS.cyan,
+      // Color by flight category
+      'icon-color': [
+        'match',
+        ['get', 'flightCategory'],
+        'commercial',
+        FLIGHT_COLORS.commercial,
+        'military',
+        FLIGHT_COLORS.military,
+        'emergency',
+        FLIGHT_COLORS.emergency,
+        'private',
+        FLIGHT_COLORS.private,
+        'helicopter',
+        FLIGHT_COLORS.helicopter,
+        'cargo',
+        FLIGHT_COLORS.cargo,
+        'uav',
+        FLIGHT_COLORS.uav,
+        FLIGHT_COLORS.unknown, // default
+      ],
+      // Text color matches icon color
+      'text-color': [
+        'match',
+        ['get', 'flightCategory'],
+        'commercial',
+        FLIGHT_COLORS.commercial,
+        'military',
+        FLIGHT_COLORS.military,
+        'emergency',
+        FLIGHT_COLORS.emergency,
+        'private',
+        FLIGHT_COLORS.private,
+        'helicopter',
+        FLIGHT_COLORS.helicopter,
+        'cargo',
+        FLIGHT_COLORS.cargo,
+        'uav',
+        FLIGHT_COLORS.uav,
+        FLIGHT_COLORS.unknown, // default
+      ],
       'text-halo-color': '#000',
       'text-halo-width': 1,
     },
@@ -581,6 +690,10 @@ export function updateTracksData(
         speed: track.speed,
         altitude: track.altitude,
         status: track.status,
+        // Flight-specific properties for visualization
+        flightCategory: track.flightCategory || 'unknown',
+        isEmergency: track.isEmergency || false,
+        squawk: track.squawk,
       },
     }));
 
@@ -670,7 +783,7 @@ function getLayerIds(layerId: string): string[] {
     actors: ['command-actors', 'command-actors-direction'],
     events: ['command-events'],
     maritime: ['command-maritime'],
-    flight: ['command-flight'],
+    flight: ['command-flight', 'command-flight-emergency-pulse'],
     alerts: ['command-alerts', 'command-alerts-pulse'],
   };
 

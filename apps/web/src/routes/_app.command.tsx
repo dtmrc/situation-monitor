@@ -8,6 +8,7 @@ import {
   CommandMap,
   FeatureDetailPopup,
   LayerControlPanel,
+  loadMapIcons,
   MapOverlay,
   MapStatusBar,
   QuickFiltersPanel,
@@ -102,13 +103,16 @@ function CommandCenterPage() {
     }
   }, [location, locationLoading, flyTo]);
 
-  // Handle map load - add custom layers
+  // Handle map load - load icons and add custom layers
   const handleMapLoad = useCallback((map: mapboxgl.Map) => {
     mapRef.current = map;
 
     if (!layersInitialized.current) {
-      addMapLayers(map);
-      layersInitialized.current = true;
+      // Load custom icons (airplane, etc.) before adding layers
+      void loadMapIcons(map).then(() => {
+        addMapLayers(map);
+        layersInitialized.current = true;
+      });
     }
   }, []);
 

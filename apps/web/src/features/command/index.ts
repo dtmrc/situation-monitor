@@ -20,6 +20,7 @@ export { MapStatusBar } from './components/MapStatusBar';
 // Layers
 export {
   addMapLayers,
+  loadMapIcons,
   updateMarkersData,
   updateNAIsData,
   updateActorsData,

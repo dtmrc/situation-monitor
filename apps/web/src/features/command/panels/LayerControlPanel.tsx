@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, Layers, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Layers, Plane, X } from 'lucide-react';
 import { useState } from 'react';
 
 import { Slider } from '@/components/ui/slider';
@@ -6,7 +6,7 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 
 import { useMapStore } from '../store';
-import type { LayerId } from '../types';
+import type { FlightCategory, LayerId } from '../types';
 
 /**
  * LayerControlPanel - Floating panel for toggling map layers
@@ -15,12 +15,25 @@ import type { LayerId } from '../types';
  * Features:
  * - Toggle layer visibility with switches
  * - Adjust layer opacity with sliders
+ * - Flight category legend
  * - Collapsible panel
  */
+
+/** Flight category colors matching addMapLayers.ts */
+const FLIGHT_CATEGORY_LEGEND: { category: FlightCategory; label: string; color: string }[] = [
+  { category: 'commercial', label: 'Commercial', color: '#00d4ff' },
+  { category: 'military', label: 'Military', color: '#a855f7' },
+  { category: 'emergency', label: 'Emergency', color: '#ff3333' },
+  { category: 'private', label: 'Private/GA', color: '#00ff88' },
+  { category: 'helicopter', label: 'Helicopter', color: '#ffaa00' },
+  { category: 'cargo', label: 'Cargo', color: '#3b82f6' },
+  { category: 'uav', label: 'UAV/Drone', color: '#ff6b35' },
+];
 
 export function LayerControlPanel() {
   const [isExpanded, setIsExpanded] = useState(true);
   const [showOpacity, setShowOpacity] = useState<LayerId | null>(null);
+  const [showFlightLegend, setShowFlightLegend] = useState(false);
 
   const { layers, setLayerVisibility, setLayerOpacity } = useMapStore();
 
@@ -107,6 +120,41 @@ export function LayerControlPanel() {
                         <X className="h-3 w-3" />
                       </button>
                     </div>
+                  </div>
+                )}
+
+                {/* Flight category legend (for flight layer only) */}
+                {layer.id === 'flight' && layer.visible && (
+                  <div className="px-3 pb-2">
+                    <button
+                      onClick={() => setShowFlightLegend(!showFlightLegend)}
+                      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <Plane className="h-3 w-3" />
+                      <span>Aircraft Types</span>
+                      {showFlightLegend ? (
+                        <ChevronUp className="h-3 w-3" />
+                      ) : (
+                        <ChevronDown className="h-3 w-3" />
+                      )}
+                    </button>
+
+                    {showFlightLegend && (
+                      <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1">
+                        {FLIGHT_CATEGORY_LEGEND.map(({ category, label, color }) => (
+                          <div key={category} className="flex items-center gap-1.5">
+                            <div
+                              className={cn(
+                                'w-2 h-2 rounded-full',
+                                category === 'emergency' && 'ring-2 ring-red-500/50 animate-pulse'
+                              )}
+                              style={{ backgroundColor: color }}
+                            />
+                            <span className="text-xs text-muted-foreground">{label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

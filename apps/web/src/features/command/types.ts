@@ -161,6 +161,17 @@ export interface Actor {
   lastSeen: string;
 }
 
+/** Flight category for color coding */
+export type FlightCategory =
+  | 'commercial' // Large aircraft, airline callsigns
+  | 'military' // Military squawk/callsign
+  | 'emergency' // Squawk 7500/7600/7700
+  | 'private' // Small aircraft (GA)
+  | 'helicopter' // Rotorcraft
+  | 'cargo' // Cargo aircraft
+  | 'uav' // Drones/UAVs
+  | 'unknown'; // Default
+
 export interface Track {
   id: string;
   type: 'maritime' | 'flight';
@@ -173,6 +184,12 @@ export interface Track {
   destination?: string;
   status: 'active' | 'lost';
   lastUpdate: string;
+  /** Flight-specific: aircraft category for color coding */
+  flightCategory?: FlightCategory;
+  /** Flight-specific: true if aircraft is squawking emergency */
+  isEmergency?: boolean;
+  /** Flight-specific: squawk code */
+  squawk?: string;
 }
 
 /** ═══════════════════════════════════════════════════════════════════════════

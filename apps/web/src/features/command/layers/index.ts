@@ -1,5 +1,6 @@
 export {
   addMapLayers,
+  loadMapIcons,
   updateMarkersData,
   updateNAIsData,
   updateActorsData,
