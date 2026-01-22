@@ -139,6 +139,7 @@ export interface FeedProcessJobData {
   feedType: string;
   rawItems: unknown[];
   processingLogId: string;
+  feedOptions?: Record<string, unknown> | null;
 }
 
 export interface TripwireCheckJobData {

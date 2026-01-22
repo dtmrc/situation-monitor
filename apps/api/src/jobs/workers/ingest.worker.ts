@@ -84,6 +84,7 @@ export function createIngestWorker(): Worker<FeedIngestJobData> {
             feedType,
             rawItems: batchItems,
             processingLogId: logId,
+            feedOptions: config.options as Record<string, unknown> | null,
           });
         }
 

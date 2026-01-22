@@ -179,82 +179,93 @@ export class NewsAdapter extends BaseFeedAdapter {
   }
 
   /**
-   * Fetch from RSS feed
+   * Fetch from RSS feed(s)
+   * Supports single endpoint or multiple feed URLs via options.feedUrls
    */
   private async fetchRSS(
     config: FeedConfig,
     filters?: FeedFilterOptions
   ): Promise<FeedFetchResult> {
-    const endpoint = config.endpoint;
+    const options = config.options as Record<string, unknown>;
 
-    if (!endpoint) {
+    // Support single endpoint OR array of feedUrls
+    const feedUrls: string[] = [];
+    if (config.endpoint) {
+      feedUrls.push(config.endpoint);
+    }
+    if (options?.feedUrls && Array.isArray(options.feedUrls)) {
+      feedUrls.push(...(options.feedUrls as string[]));
+    }
+
+    if (feedUrls.length === 0) {
       return {
         items: [],
         failedCount: 0,
-        errors: ['RSS feed URL required'],
+        errors: ['No RSS feed URLs provided'],
         hasMore: false,
       };
     }
 
-    try {
-      const feed = await rssParser.parseURL(endpoint);
-      const items: NormalizedFeedItem[] = [];
-      const errors: string[] = [];
+    // Aggregate results from all feeds
+    const allItems: NormalizedFeedItem[] = [];
+    const allErrors: string[] = [];
 
-      for (const item of feed.items) {
-        try {
-          // Extract content
-          let content = item.contentSnippet || item.content || item.summary;
+    for (const feedUrl of feedUrls) {
+      try {
+        const feed = await rssParser.parseURL(feedUrl);
 
-          // Try to extract full content if URL is available
-          if (!content && item.link) {
-            try {
-              content = await this.extractArticleContent(item.link);
-            } catch {
-              // Ignore extraction errors
+        for (const item of feed.items) {
+          try {
+            // Extract content
+            let content = item.contentSnippet || item.content || item.summary;
+
+            // Try to extract full content if URL is available
+            if (!content && item.link) {
+              try {
+                content = await this.extractArticleContent(item.link);
+              } catch {
+                // Ignore extraction errors
+              }
             }
+
+            allItems.push({
+              externalId: `rss:${Buffer.from(item.link || item.guid || item.title || '')
+                .toString('base64')
+                .slice(0, 100)}`,
+              type: 'news' as const,
+              title: item.title || 'Untitled',
+              content,
+              url: item.link,
+              timestamp: item.pubDate ? new Date(item.pubDate) : new Date(),
+              severity: this.determineSeverity(`${item.title || ''} ${content || ''}`),
+              metadata: {
+                source: feed.title,
+                feedUrl: feedUrl,
+                categories: item.categories,
+                author: item.creator || item.author,
+              },
+              raw: item,
+            });
+          } catch (err) {
+            allErrors.push(`Failed to parse item from ${feedUrl}: ${item.title || 'unknown'}`);
           }
-
-          items.push({
-            externalId: `rss:${Buffer.from(item.link || item.guid || item.title || '')
-              .toString('base64')
-              .slice(0, 100)}`,
-            type: 'news' as const,
-            title: item.title || 'Untitled',
-            content,
-            url: item.link,
-            timestamp: item.pubDate ? new Date(item.pubDate) : new Date(),
-            severity: this.determineSeverity(`${item.title || ''} ${content || ''}`),
-            metadata: {
-              source: feed.title,
-              feedUrl: endpoint,
-              categories: item.categories,
-              author: item.creator || item.author,
-            },
-            raw: item,
-          });
-        } catch (err) {
-          errors.push(`Failed to parse item: ${item.title || 'unknown'}`);
         }
+      } catch (error) {
+        allErrors.push(
+          `Failed to fetch ${feedUrl}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
       }
-
-      // Apply filters
-      const filtered = this.filterItems(items, filters);
-
-      return {
-        items: filtered,
-        failedCount: errors.length + (items.length - filtered.length),
-        errors,
-        hasMore: false, // RSS feeds don't support pagination
-      };
-    } catch (error) {
-      return {
-        items: [],
-        failedCount: 0,
-        errors: [error instanceof Error ? error.message : 'RSS fetch failed'],
-        hasMore: false,
-      };
     }
+
+    // Apply filters
+    const filtered = this.filterItems(allItems, filters);
+
+    return {
+      items: filtered,
+      failedCount: allErrors.length + (allItems.length - filtered.length),
+      errors: allErrors,
+      hasMore: false, // RSS feeds don't support pagination
+    };
   }
 
   /**
