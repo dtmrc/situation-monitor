@@ -7,6 +7,7 @@
 
 import { registerAdapter } from '../normalizer.service';
 
+import { aisAdapter } from './ais.adapter';
 import { civilUnrestAdapter } from './civil-unrest.adapter';
 import { fireAdapter } from './fire.adapter';
 import { flightAdapter } from './flight.adapter';
@@ -21,6 +22,15 @@ export { flightAdapter } from './flight.adapter';
 export { maritimeAdapter } from './maritime.adapter';
 export { fireAdapter } from './fire.adapter';
 export { telegramAdapter } from './telegram.adapter';
+export {
+  aisAdapter,
+  AisAdapter,
+  SHIP_TYPES,
+  NAV_STATUS,
+  SHIP_TYPE_COLORS,
+  type AISMessage,
+  type BoundingBox,
+} from './ais.adapter';
 
 // Export specialized unrest adapters
 export { acledAdapter, ACLEDAdapter } from './unrest/acled.adapter';
@@ -32,6 +42,7 @@ export const allAdapters = [
   civilUnrestAdapter,
   flightAdapter,
   maritimeAdapter,
+  aisAdapter,
   fireAdapter,
   telegramAdapter,
 ];

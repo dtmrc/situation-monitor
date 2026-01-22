@@ -264,3 +264,82 @@ export const projectsApi = {
     api.patch<{ project: Project }>(`/projects/${id}`, data),
   delete: (id: string) => api.delete<{ success: boolean }>(`/projects/${id}`),
 };
+
+// Maritime/AIS vessel tracking types
+export interface VesselState {
+  mmsi: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  course: number;
+  speed: number;
+  heading: number;
+  shipType: number;
+  shipTypeLabel: string;
+  shipCategory?: string;
+  navStatus: number;
+  navStatusLabel: string;
+  destination?: string;
+  imo?: string;
+  callsign?: string;
+  draught?: number;
+  severity: string;
+  isMoving: boolean;
+  alerts?: string[];
+}
+
+export interface MaritimeDataResponse {
+  vessels: VesselState[];
+  timestamp: string;
+  count: number;
+}
+
+export interface VesselTrackPoint {
+  latitude: number;
+  longitude: number;
+  timestamp: string;
+  speed: number;
+  heading: number;
+}
+
+export interface VesselTrackResponse {
+  mmsi: string;
+  name: string;
+  track: VesselTrackPoint[];
+  startTime: string;
+  endTime: string;
+}
+
+// Maritime API functions
+export const maritimeApi = {
+  /**
+   * Fetch maritime vessel data for a project
+   */
+  getData: (projectId: string, options?: { shipTypes?: number[]; severity?: string[] }) => {
+    const params = new URLSearchParams();
+    if (options?.shipTypes?.length) {
+      params.set('shipTypes', options.shipTypes.join(','));
+    }
+    if (options?.severity?.length) {
+      params.set('severity', options.severity.join(','));
+    }
+    const query = params.toString();
+    return api.get<MaritimeDataResponse>(
+      `/projects/${projectId}/feeds/maritime${query ? `?${query}` : ''}`
+    );
+  },
+
+  /**
+   * Fetch vessel details by MMSI
+   */
+  getVessel: (projectId: string, mmsi: string) =>
+    api.get<{ vessel: VesselState }>(`/projects/${projectId}/feeds/maritime/${mmsi}`),
+
+  /**
+   * Fetch vessel track history
+   */
+  getVesselTrack: (projectId: string, mmsi: string, hours = 24) =>
+    api.get<VesselTrackResponse>(
+      `/projects/${projectId}/feeds/maritime/${mmsi}/track?hours=${hours}`
+    ),
+};
