@@ -149,9 +149,9 @@ export class FireAdapter extends BaseFeedAdapter {
 
     // Filter by bounds if using global endpoint
     if (!mapKey) {
-      return records.filter((r: FIRMSRecord) => {
-        const lat = parseFloat(r.latitude);
-        const lon = parseFloat(r.longitude);
+      return records.filter((r) => {
+        const lat = parseFloat(String(r.latitude));
+        const lon = parseFloat(String(r.longitude));
         return lat >= south && lat <= north && lon >= west && lon <= east;
       });
     }
