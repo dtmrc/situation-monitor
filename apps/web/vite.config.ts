@@ -104,8 +104,15 @@ export default defineConfig({
     },
     headers: {
       // CSP header for development
-      'Content-Security-Policy':
-        "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://localhost:* http://localhost:*; img-src 'self' data: https:; font-src 'self';",
+      'Content-Security-Policy': [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:",
+        "style-src 'self' 'unsafe-inline'",
+        "connect-src 'self' ws://localhost:* http://localhost:* https://api.mapbox.com https://events.mapbox.com https://*.tiles.mapbox.com",
+        "img-src 'self' data: blob: https://*.mapbox.com https://*.tiles.mapbox.com",
+        "font-src 'self' https://fonts.gstatic.com",
+        "worker-src 'self' blob:",
+      ].join('; '),
     },
   },
 });

@@ -8,255 +8,255 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from './routes/__root';
-import { Route as AuthRouteImport } from './routes/_auth';
-import { Route as AppRouteImport } from './routes/_app';
-import { Route as IndexRouteImport } from './routes/index';
-import { Route as AuthRegisterRouteImport } from './routes/_auth.register';
-import { Route as AuthLoginRouteImport } from './routes/_auth.login';
-import { Route as AuthForgotPasswordRouteImport } from './routes/_auth.forgot-password';
-import { Route as AppThreatsRouteImport } from './routes/_app.threats';
-import { Route as AppSettingsRouteImport } from './routes/_app.settings';
-import { Route as AppProjectsRouteImport } from './routes/_app.projects';
-import { Route as AppProfileRouteImport } from './routes/_app.profile';
-import { Route as AppIntelRouteImport } from './routes/_app.intel';
-import { Route as AppDashboardRouteImport } from './routes/_app.dashboard';
-import { Route as AppCommandRouteImport } from './routes/_app.command';
-import { Route as AppAssessmentsRouteImport } from './routes/_app.assessments';
-import { Route as AppAlertsRouteImport } from './routes/_app.alerts';
-import { Route as AppProjectsProjectIdRouteImport } from './routes/_app.projects.$projectId';
-import { Route as AppDashboardsSynthesisRouteImport } from './routes/_app.dashboards.synthesis';
-import { Route as AppDashboardsScenariosRouteImport } from './routes/_app.dashboards.scenarios';
-import { Route as AppDashboardsPoliticalRouteImport } from './routes/_app.dashboards.political';
-import { Route as AppDashboardsExecutiveRouteImport } from './routes/_app.dashboards.executive';
-import { Route as AppDashboardsAlliancesRouteImport } from './routes/_app.dashboards.alliances';
-import { Route as AppAnalysisTrendsRouteImport } from './routes/_app.analysis.trends';
-import { Route as AppAnalysisThreatsRouteImport } from './routes/_app.analysis.threats';
-import { Route as AppAnalysisRiskRouteImport } from './routes/_app.analysis.risk';
-import { Route as AppAnalysisPmesiiRouteImport } from './routes/_app.analysis.pmesii';
-import { Route as AppAnalysisCogRouteImport } from './routes/_app.analysis.cog';
-import { Route as AppAnalysisAchRouteImport } from './routes/_app.analysis.ach';
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as AuthRouteImport } from './routes/_auth'
+import { Route as AppRouteImport } from './routes/_app'
+import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthRegisterRouteImport } from './routes/_auth.register'
+import { Route as AuthLoginRouteImport } from './routes/_auth.login'
+import { Route as AuthForgotPasswordRouteImport } from './routes/_auth.forgot-password'
+import { Route as AppThreatsRouteImport } from './routes/_app.threats'
+import { Route as AppSettingsRouteImport } from './routes/_app.settings'
+import { Route as AppProjectsRouteImport } from './routes/_app.projects'
+import { Route as AppProfileRouteImport } from './routes/_app.profile'
+import { Route as AppIntelRouteImport } from './routes/_app.intel'
+import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
+import { Route as AppCommandRouteImport } from './routes/_app.command'
+import { Route as AppAssessmentsRouteImport } from './routes/_app.assessments'
+import { Route as AppAlertsRouteImport } from './routes/_app.alerts'
+import { Route as AppProjectsProjectIdRouteImport } from './routes/_app.projects.$projectId'
+import { Route as AppDashboardsSynthesisRouteImport } from './routes/_app.dashboards.synthesis'
+import { Route as AppDashboardsScenariosRouteImport } from './routes/_app.dashboards.scenarios'
+import { Route as AppDashboardsPoliticalRouteImport } from './routes/_app.dashboards.political'
+import { Route as AppDashboardsExecutiveRouteImport } from './routes/_app.dashboards.executive'
+import { Route as AppDashboardsAlliancesRouteImport } from './routes/_app.dashboards.alliances'
+import { Route as AppAnalysisTrendsRouteImport } from './routes/_app.analysis.trends'
+import { Route as AppAnalysisThreatsRouteImport } from './routes/_app.analysis.threats'
+import { Route as AppAnalysisRiskRouteImport } from './routes/_app.analysis.risk'
+import { Route as AppAnalysisPmesiiRouteImport } from './routes/_app.analysis.pmesii'
+import { Route as AppAnalysisCogRouteImport } from './routes/_app.analysis.cog'
+import { Route as AppAnalysisAchRouteImport } from './routes/_app.analysis.ach'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/_auth',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const AppRoute = AppRouteImport.update({
   id: '/_app',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const AuthRegisterRoute = AuthRegisterRouteImport.update({
   id: '/register',
   path: '/register',
   getParentRoute: () => AuthRoute,
-} as any);
+} as any)
 const AuthLoginRoute = AuthLoginRouteImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => AuthRoute,
-} as any);
+} as any)
 const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
   getParentRoute: () => AuthRoute,
-} as any);
+} as any)
 const AppThreatsRoute = AppThreatsRouteImport.update({
   id: '/threats',
   path: '/threats',
   getParentRoute: () => AppRoute,
-} as any);
+} as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
   getParentRoute: () => AppRoute,
-} as any);
+} as any)
 const AppProjectsRoute = AppProjectsRouteImport.update({
   id: '/projects',
   path: '/projects',
   getParentRoute: () => AppRoute,
-} as any);
+} as any)
 const AppProfileRoute = AppProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
   getParentRoute: () => AppRoute,
-} as any);
+} as any)
 const AppIntelRoute = AppIntelRouteImport.update({
   id: '/intel',
   path: '/intel',
   getParentRoute: () => AppRoute,
-} as any);
+} as any)
 const AppDashboardRoute = AppDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
   getParentRoute: () => AppRoute,
-} as any);
+} as any)
 const AppCommandRoute = AppCommandRouteImport.update({
   id: '/command',
   path: '/command',
   getParentRoute: () => AppRoute,
-} as any);
+} as any)
 const AppAssessmentsRoute = AppAssessmentsRouteImport.update({
   id: '/assessments',
   path: '/assessments',
   getParentRoute: () => AppRoute,
-} as any);
+} as any)
 const AppAlertsRoute = AppAlertsRouteImport.update({
   id: '/alerts',
   path: '/alerts',
   getParentRoute: () => AppRoute,
-} as any);
+} as any)
 const AppProjectsProjectIdRoute = AppProjectsProjectIdRouteImport.update({
   id: '/$projectId',
   path: '/$projectId',
   getParentRoute: () => AppProjectsRoute,
-} as any);
+} as any)
 const AppDashboardsSynthesisRoute = AppDashboardsSynthesisRouteImport.update({
   id: '/dashboards/synthesis',
   path: '/dashboards/synthesis',
   getParentRoute: () => AppRoute,
-} as any);
+} as any)
 const AppDashboardsScenariosRoute = AppDashboardsScenariosRouteImport.update({
   id: '/dashboards/scenarios',
   path: '/dashboards/scenarios',
   getParentRoute: () => AppRoute,
-} as any);
+} as any)
 const AppDashboardsPoliticalRoute = AppDashboardsPoliticalRouteImport.update({
   id: '/dashboards/political',
   path: '/dashboards/political',
   getParentRoute: () => AppRoute,
-} as any);
+} as any)
 const AppDashboardsExecutiveRoute = AppDashboardsExecutiveRouteImport.update({
   id: '/dashboards/executive',
   path: '/dashboards/executive',
   getParentRoute: () => AppRoute,
-} as any);
+} as any)
 const AppDashboardsAlliancesRoute = AppDashboardsAlliancesRouteImport.update({
   id: '/dashboards/alliances',
   path: '/dashboards/alliances',
   getParentRoute: () => AppRoute,
-} as any);
+} as any)
 const AppAnalysisTrendsRoute = AppAnalysisTrendsRouteImport.update({
   id: '/analysis/trends',
   path: '/analysis/trends',
   getParentRoute: () => AppRoute,
-} as any);
+} as any)
 const AppAnalysisThreatsRoute = AppAnalysisThreatsRouteImport.update({
   id: '/analysis/threats',
   path: '/analysis/threats',
   getParentRoute: () => AppRoute,
-} as any);
+} as any)
 const AppAnalysisRiskRoute = AppAnalysisRiskRouteImport.update({
   id: '/analysis/risk',
   path: '/analysis/risk',
   getParentRoute: () => AppRoute,
-} as any);
+} as any)
 const AppAnalysisPmesiiRoute = AppAnalysisPmesiiRouteImport.update({
   id: '/analysis/pmesii',
   path: '/analysis/pmesii',
   getParentRoute: () => AppRoute,
-} as any);
+} as any)
 const AppAnalysisCogRoute = AppAnalysisCogRouteImport.update({
   id: '/analysis/cog',
   path: '/analysis/cog',
   getParentRoute: () => AppRoute,
-} as any);
+} as any)
 const AppAnalysisAchRoute = AppAnalysisAchRouteImport.update({
   id: '/analysis/ach',
   path: '/analysis/ach',
   getParentRoute: () => AppRoute,
-} as any);
+} as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute;
-  '/alerts': typeof AppAlertsRoute;
-  '/assessments': typeof AppAssessmentsRoute;
-  '/command': typeof AppCommandRoute;
-  '/dashboard': typeof AppDashboardRoute;
-  '/intel': typeof AppIntelRoute;
-  '/profile': typeof AppProfileRoute;
-  '/projects': typeof AppProjectsRouteWithChildren;
-  '/settings': typeof AppSettingsRoute;
-  '/threats': typeof AppThreatsRoute;
-  '/forgot-password': typeof AuthForgotPasswordRoute;
-  '/login': typeof AuthLoginRoute;
-  '/register': typeof AuthRegisterRoute;
-  '/analysis/ach': typeof AppAnalysisAchRoute;
-  '/analysis/cog': typeof AppAnalysisCogRoute;
-  '/analysis/pmesii': typeof AppAnalysisPmesiiRoute;
-  '/analysis/risk': typeof AppAnalysisRiskRoute;
-  '/analysis/threats': typeof AppAnalysisThreatsRoute;
-  '/analysis/trends': typeof AppAnalysisTrendsRoute;
-  '/dashboards/alliances': typeof AppDashboardsAlliancesRoute;
-  '/dashboards/executive': typeof AppDashboardsExecutiveRoute;
-  '/dashboards/political': typeof AppDashboardsPoliticalRoute;
-  '/dashboards/scenarios': typeof AppDashboardsScenariosRoute;
-  '/dashboards/synthesis': typeof AppDashboardsSynthesisRoute;
-  '/projects/$projectId': typeof AppProjectsProjectIdRoute;
+  '/': typeof IndexRoute
+  '/alerts': typeof AppAlertsRoute
+  '/assessments': typeof AppAssessmentsRoute
+  '/command': typeof AppCommandRoute
+  '/dashboard': typeof AppDashboardRoute
+  '/intel': typeof AppIntelRoute
+  '/profile': typeof AppProfileRoute
+  '/projects': typeof AppProjectsRouteWithChildren
+  '/settings': typeof AppSettingsRoute
+  '/threats': typeof AppThreatsRoute
+  '/forgot-password': typeof AuthForgotPasswordRoute
+  '/login': typeof AuthLoginRoute
+  '/register': typeof AuthRegisterRoute
+  '/analysis/ach': typeof AppAnalysisAchRoute
+  '/analysis/cog': typeof AppAnalysisCogRoute
+  '/analysis/pmesii': typeof AppAnalysisPmesiiRoute
+  '/analysis/risk': typeof AppAnalysisRiskRoute
+  '/analysis/threats': typeof AppAnalysisThreatsRoute
+  '/analysis/trends': typeof AppAnalysisTrendsRoute
+  '/dashboards/alliances': typeof AppDashboardsAlliancesRoute
+  '/dashboards/executive': typeof AppDashboardsExecutiveRoute
+  '/dashboards/political': typeof AppDashboardsPoliticalRoute
+  '/dashboards/scenarios': typeof AppDashboardsScenariosRoute
+  '/dashboards/synthesis': typeof AppDashboardsSynthesisRoute
+  '/projects/$projectId': typeof AppProjectsProjectIdRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute;
-  '/alerts': typeof AppAlertsRoute;
-  '/assessments': typeof AppAssessmentsRoute;
-  '/command': typeof AppCommandRoute;
-  '/dashboard': typeof AppDashboardRoute;
-  '/intel': typeof AppIntelRoute;
-  '/profile': typeof AppProfileRoute;
-  '/projects': typeof AppProjectsRouteWithChildren;
-  '/settings': typeof AppSettingsRoute;
-  '/threats': typeof AppThreatsRoute;
-  '/forgot-password': typeof AuthForgotPasswordRoute;
-  '/login': typeof AuthLoginRoute;
-  '/register': typeof AuthRegisterRoute;
-  '/analysis/ach': typeof AppAnalysisAchRoute;
-  '/analysis/cog': typeof AppAnalysisCogRoute;
-  '/analysis/pmesii': typeof AppAnalysisPmesiiRoute;
-  '/analysis/risk': typeof AppAnalysisRiskRoute;
-  '/analysis/threats': typeof AppAnalysisThreatsRoute;
-  '/analysis/trends': typeof AppAnalysisTrendsRoute;
-  '/dashboards/alliances': typeof AppDashboardsAlliancesRoute;
-  '/dashboards/executive': typeof AppDashboardsExecutiveRoute;
-  '/dashboards/political': typeof AppDashboardsPoliticalRoute;
-  '/dashboards/scenarios': typeof AppDashboardsScenariosRoute;
-  '/dashboards/synthesis': typeof AppDashboardsSynthesisRoute;
-  '/projects/$projectId': typeof AppProjectsProjectIdRoute;
+  '/': typeof IndexRoute
+  '/alerts': typeof AppAlertsRoute
+  '/assessments': typeof AppAssessmentsRoute
+  '/command': typeof AppCommandRoute
+  '/dashboard': typeof AppDashboardRoute
+  '/intel': typeof AppIntelRoute
+  '/profile': typeof AppProfileRoute
+  '/projects': typeof AppProjectsRouteWithChildren
+  '/settings': typeof AppSettingsRoute
+  '/threats': typeof AppThreatsRoute
+  '/forgot-password': typeof AuthForgotPasswordRoute
+  '/login': typeof AuthLoginRoute
+  '/register': typeof AuthRegisterRoute
+  '/analysis/ach': typeof AppAnalysisAchRoute
+  '/analysis/cog': typeof AppAnalysisCogRoute
+  '/analysis/pmesii': typeof AppAnalysisPmesiiRoute
+  '/analysis/risk': typeof AppAnalysisRiskRoute
+  '/analysis/threats': typeof AppAnalysisThreatsRoute
+  '/analysis/trends': typeof AppAnalysisTrendsRoute
+  '/dashboards/alliances': typeof AppDashboardsAlliancesRoute
+  '/dashboards/executive': typeof AppDashboardsExecutiveRoute
+  '/dashboards/political': typeof AppDashboardsPoliticalRoute
+  '/dashboards/scenarios': typeof AppDashboardsScenariosRoute
+  '/dashboards/synthesis': typeof AppDashboardsSynthesisRoute
+  '/projects/$projectId': typeof AppProjectsProjectIdRoute
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport;
-  '/': typeof IndexRoute;
-  '/_app': typeof AppRouteWithChildren;
-  '/_auth': typeof AuthRouteWithChildren;
-  '/_app/alerts': typeof AppAlertsRoute;
-  '/_app/assessments': typeof AppAssessmentsRoute;
-  '/_app/command': typeof AppCommandRoute;
-  '/_app/dashboard': typeof AppDashboardRoute;
-  '/_app/intel': typeof AppIntelRoute;
-  '/_app/profile': typeof AppProfileRoute;
-  '/_app/projects': typeof AppProjectsRouteWithChildren;
-  '/_app/settings': typeof AppSettingsRoute;
-  '/_app/threats': typeof AppThreatsRoute;
-  '/_auth/forgot-password': typeof AuthForgotPasswordRoute;
-  '/_auth/login': typeof AuthLoginRoute;
-  '/_auth/register': typeof AuthRegisterRoute;
-  '/_app/analysis/ach': typeof AppAnalysisAchRoute;
-  '/_app/analysis/cog': typeof AppAnalysisCogRoute;
-  '/_app/analysis/pmesii': typeof AppAnalysisPmesiiRoute;
-  '/_app/analysis/risk': typeof AppAnalysisRiskRoute;
-  '/_app/analysis/threats': typeof AppAnalysisThreatsRoute;
-  '/_app/analysis/trends': typeof AppAnalysisTrendsRoute;
-  '/_app/dashboards/alliances': typeof AppDashboardsAlliancesRoute;
-  '/_app/dashboards/executive': typeof AppDashboardsExecutiveRoute;
-  '/_app/dashboards/political': typeof AppDashboardsPoliticalRoute;
-  '/_app/dashboards/scenarios': typeof AppDashboardsScenariosRoute;
-  '/_app/dashboards/synthesis': typeof AppDashboardsSynthesisRoute;
-  '/_app/projects/$projectId': typeof AppProjectsProjectIdRoute;
+  __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
+  '/_app': typeof AppRouteWithChildren
+  '/_auth': typeof AuthRouteWithChildren
+  '/_app/alerts': typeof AppAlertsRoute
+  '/_app/assessments': typeof AppAssessmentsRoute
+  '/_app/command': typeof AppCommandRoute
+  '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/intel': typeof AppIntelRoute
+  '/_app/profile': typeof AppProfileRoute
+  '/_app/projects': typeof AppProjectsRouteWithChildren
+  '/_app/settings': typeof AppSettingsRoute
+  '/_app/threats': typeof AppThreatsRoute
+  '/_auth/forgot-password': typeof AuthForgotPasswordRoute
+  '/_auth/login': typeof AuthLoginRoute
+  '/_auth/register': typeof AuthRegisterRoute
+  '/_app/analysis/ach': typeof AppAnalysisAchRoute
+  '/_app/analysis/cog': typeof AppAnalysisCogRoute
+  '/_app/analysis/pmesii': typeof AppAnalysisPmesiiRoute
+  '/_app/analysis/risk': typeof AppAnalysisRiskRoute
+  '/_app/analysis/threats': typeof AppAnalysisThreatsRoute
+  '/_app/analysis/trends': typeof AppAnalysisTrendsRoute
+  '/_app/dashboards/alliances': typeof AppDashboardsAlliancesRoute
+  '/_app/dashboards/executive': typeof AppDashboardsExecutiveRoute
+  '/_app/dashboards/political': typeof AppDashboardsPoliticalRoute
+  '/_app/dashboards/scenarios': typeof AppDashboardsScenariosRoute
+  '/_app/dashboards/synthesis': typeof AppDashboardsSynthesisRoute
+  '/_app/projects/$projectId': typeof AppProjectsProjectIdRoute
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath;
+  fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/alerts'
@@ -282,8 +282,8 @@ export interface FileRouteTypes {
     | '/dashboards/political'
     | '/dashboards/scenarios'
     | '/dashboards/synthesis'
-    | '/projects/$projectId';
-  fileRoutesByTo: FileRoutesByTo;
+    | '/projects/$projectId'
+  fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/alerts'
@@ -309,7 +309,7 @@ export interface FileRouteTypes {
     | '/dashboards/political'
     | '/dashboards/scenarios'
     | '/dashboards/synthesis'
-    | '/projects/$projectId';
+    | '/projects/$projectId'
   id:
     | '__root__'
     | '/'
@@ -338,240 +338,242 @@ export interface FileRouteTypes {
     | '/_app/dashboards/political'
     | '/_app/dashboards/scenarios'
     | '/_app/dashboards/synthesis'
-    | '/_app/projects/$projectId';
-  fileRoutesById: FileRoutesById;
+    | '/_app/projects/$projectId'
+  fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute;
-  AppRoute: typeof AppRouteWithChildren;
-  AuthRoute: typeof AuthRouteWithChildren;
+  IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRouteWithChildren
+  AuthRoute: typeof AuthRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
     '/_auth': {
-      id: '/_auth';
-      path: '';
-      fullPath: '/';
-      preLoaderRoute: typeof AuthRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/_auth'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_app': {
-      id: '/_app';
-      path: '';
-      fullPath: '/';
-      preLoaderRoute: typeof AppRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
-      id: '/';
-      path: '/';
-      fullPath: '/';
-      preLoaderRoute: typeof IndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_auth/register': {
-      id: '/_auth/register';
-      path: '/register';
-      fullPath: '/register';
-      preLoaderRoute: typeof AuthRegisterRouteImport;
-      parentRoute: typeof AuthRoute;
-    };
+      id: '/_auth/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof AuthRegisterRouteImport
+      parentRoute: typeof AuthRoute
+    }
     '/_auth/login': {
-      id: '/_auth/login';
-      path: '/login';
-      fullPath: '/login';
-      preLoaderRoute: typeof AuthLoginRouteImport;
-      parentRoute: typeof AuthRoute;
-    };
+      id: '/_auth/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof AuthLoginRouteImport
+      parentRoute: typeof AuthRoute
+    }
     '/_auth/forgot-password': {
-      id: '/_auth/forgot-password';
-      path: '/forgot-password';
-      fullPath: '/forgot-password';
-      preLoaderRoute: typeof AuthForgotPasswordRouteImport;
-      parentRoute: typeof AuthRoute;
-    };
+      id: '/_auth/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof AuthForgotPasswordRouteImport
+      parentRoute: typeof AuthRoute
+    }
     '/_app/threats': {
-      id: '/_app/threats';
-      path: '/threats';
-      fullPath: '/threats';
-      preLoaderRoute: typeof AppThreatsRouteImport;
-      parentRoute: typeof AppRoute;
-    };
+      id: '/_app/threats'
+      path: '/threats'
+      fullPath: '/threats'
+      preLoaderRoute: typeof AppThreatsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/settings': {
-      id: '/_app/settings';
-      path: '/settings';
-      fullPath: '/settings';
-      preLoaderRoute: typeof AppSettingsRouteImport;
-      parentRoute: typeof AppRoute;
-    };
+      id: '/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/projects': {
-      id: '/_app/projects';
-      path: '/projects';
-      fullPath: '/projects';
-      preLoaderRoute: typeof AppProjectsRouteImport;
-      parentRoute: typeof AppRoute;
-    };
+      id: '/_app/projects'
+      path: '/projects'
+      fullPath: '/projects'
+      preLoaderRoute: typeof AppProjectsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/profile': {
-      id: '/_app/profile';
-      path: '/profile';
-      fullPath: '/profile';
-      preLoaderRoute: typeof AppProfileRouteImport;
-      parentRoute: typeof AppRoute;
-    };
+      id: '/_app/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof AppProfileRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/intel': {
-      id: '/_app/intel';
-      path: '/intel';
-      fullPath: '/intel';
-      preLoaderRoute: typeof AppIntelRouteImport;
-      parentRoute: typeof AppRoute;
-    };
+      id: '/_app/intel'
+      path: '/intel'
+      fullPath: '/intel'
+      preLoaderRoute: typeof AppIntelRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/dashboard': {
-      id: '/_app/dashboard';
-      path: '/dashboard';
-      fullPath: '/dashboard';
-      preLoaderRoute: typeof AppDashboardRouteImport;
-      parentRoute: typeof AppRoute;
-    };
+      id: '/_app/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AppDashboardRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/command': {
-      id: '/_app/command';
-      path: '/command';
-      fullPath: '/command';
-      preLoaderRoute: typeof AppCommandRouteImport;
-      parentRoute: typeof AppRoute;
-    };
+      id: '/_app/command'
+      path: '/command'
+      fullPath: '/command'
+      preLoaderRoute: typeof AppCommandRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/assessments': {
-      id: '/_app/assessments';
-      path: '/assessments';
-      fullPath: '/assessments';
-      preLoaderRoute: typeof AppAssessmentsRouteImport;
-      parentRoute: typeof AppRoute;
-    };
+      id: '/_app/assessments'
+      path: '/assessments'
+      fullPath: '/assessments'
+      preLoaderRoute: typeof AppAssessmentsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/alerts': {
-      id: '/_app/alerts';
-      path: '/alerts';
-      fullPath: '/alerts';
-      preLoaderRoute: typeof AppAlertsRouteImport;
-      parentRoute: typeof AppRoute;
-    };
+      id: '/_app/alerts'
+      path: '/alerts'
+      fullPath: '/alerts'
+      preLoaderRoute: typeof AppAlertsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/projects/$projectId': {
-      id: '/_app/projects/$projectId';
-      path: '/$projectId';
-      fullPath: '/projects/$projectId';
-      preLoaderRoute: typeof AppProjectsProjectIdRouteImport;
-      parentRoute: typeof AppProjectsRoute;
-    };
+      id: '/_app/projects/$projectId'
+      path: '/$projectId'
+      fullPath: '/projects/$projectId'
+      preLoaderRoute: typeof AppProjectsProjectIdRouteImport
+      parentRoute: typeof AppProjectsRoute
+    }
     '/_app/dashboards/synthesis': {
-      id: '/_app/dashboards/synthesis';
-      path: '/dashboards/synthesis';
-      fullPath: '/dashboards/synthesis';
-      preLoaderRoute: typeof AppDashboardsSynthesisRouteImport;
-      parentRoute: typeof AppRoute;
-    };
+      id: '/_app/dashboards/synthesis'
+      path: '/dashboards/synthesis'
+      fullPath: '/dashboards/synthesis'
+      preLoaderRoute: typeof AppDashboardsSynthesisRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/dashboards/scenarios': {
-      id: '/_app/dashboards/scenarios';
-      path: '/dashboards/scenarios';
-      fullPath: '/dashboards/scenarios';
-      preLoaderRoute: typeof AppDashboardsScenariosRouteImport;
-      parentRoute: typeof AppRoute;
-    };
+      id: '/_app/dashboards/scenarios'
+      path: '/dashboards/scenarios'
+      fullPath: '/dashboards/scenarios'
+      preLoaderRoute: typeof AppDashboardsScenariosRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/dashboards/political': {
-      id: '/_app/dashboards/political';
-      path: '/dashboards/political';
-      fullPath: '/dashboards/political';
-      preLoaderRoute: typeof AppDashboardsPoliticalRouteImport;
-      parentRoute: typeof AppRoute;
-    };
+      id: '/_app/dashboards/political'
+      path: '/dashboards/political'
+      fullPath: '/dashboards/political'
+      preLoaderRoute: typeof AppDashboardsPoliticalRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/dashboards/executive': {
-      id: '/_app/dashboards/executive';
-      path: '/dashboards/executive';
-      fullPath: '/dashboards/executive';
-      preLoaderRoute: typeof AppDashboardsExecutiveRouteImport;
-      parentRoute: typeof AppRoute;
-    };
+      id: '/_app/dashboards/executive'
+      path: '/dashboards/executive'
+      fullPath: '/dashboards/executive'
+      preLoaderRoute: typeof AppDashboardsExecutiveRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/dashboards/alliances': {
-      id: '/_app/dashboards/alliances';
-      path: '/dashboards/alliances';
-      fullPath: '/dashboards/alliances';
-      preLoaderRoute: typeof AppDashboardsAlliancesRouteImport;
-      parentRoute: typeof AppRoute;
-    };
+      id: '/_app/dashboards/alliances'
+      path: '/dashboards/alliances'
+      fullPath: '/dashboards/alliances'
+      preLoaderRoute: typeof AppDashboardsAlliancesRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/analysis/trends': {
-      id: '/_app/analysis/trends';
-      path: '/analysis/trends';
-      fullPath: '/analysis/trends';
-      preLoaderRoute: typeof AppAnalysisTrendsRouteImport;
-      parentRoute: typeof AppRoute;
-    };
+      id: '/_app/analysis/trends'
+      path: '/analysis/trends'
+      fullPath: '/analysis/trends'
+      preLoaderRoute: typeof AppAnalysisTrendsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/analysis/threats': {
-      id: '/_app/analysis/threats';
-      path: '/analysis/threats';
-      fullPath: '/analysis/threats';
-      preLoaderRoute: typeof AppAnalysisThreatsRouteImport;
-      parentRoute: typeof AppRoute;
-    };
+      id: '/_app/analysis/threats'
+      path: '/analysis/threats'
+      fullPath: '/analysis/threats'
+      preLoaderRoute: typeof AppAnalysisThreatsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/analysis/risk': {
-      id: '/_app/analysis/risk';
-      path: '/analysis/risk';
-      fullPath: '/analysis/risk';
-      preLoaderRoute: typeof AppAnalysisRiskRouteImport;
-      parentRoute: typeof AppRoute;
-    };
+      id: '/_app/analysis/risk'
+      path: '/analysis/risk'
+      fullPath: '/analysis/risk'
+      preLoaderRoute: typeof AppAnalysisRiskRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/analysis/pmesii': {
-      id: '/_app/analysis/pmesii';
-      path: '/analysis/pmesii';
-      fullPath: '/analysis/pmesii';
-      preLoaderRoute: typeof AppAnalysisPmesiiRouteImport;
-      parentRoute: typeof AppRoute;
-    };
+      id: '/_app/analysis/pmesii'
+      path: '/analysis/pmesii'
+      fullPath: '/analysis/pmesii'
+      preLoaderRoute: typeof AppAnalysisPmesiiRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/analysis/cog': {
-      id: '/_app/analysis/cog';
-      path: '/analysis/cog';
-      fullPath: '/analysis/cog';
-      preLoaderRoute: typeof AppAnalysisCogRouteImport;
-      parentRoute: typeof AppRoute;
-    };
+      id: '/_app/analysis/cog'
+      path: '/analysis/cog'
+      fullPath: '/analysis/cog'
+      preLoaderRoute: typeof AppAnalysisCogRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/analysis/ach': {
-      id: '/_app/analysis/ach';
-      path: '/analysis/ach';
-      fullPath: '/analysis/ach';
-      preLoaderRoute: typeof AppAnalysisAchRouteImport;
-      parentRoute: typeof AppRoute;
-    };
+      id: '/_app/analysis/ach'
+      path: '/analysis/ach'
+      fullPath: '/analysis/ach'
+      preLoaderRoute: typeof AppAnalysisAchRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
 interface AppProjectsRouteChildren {
-  AppProjectsProjectIdRoute: typeof AppProjectsProjectIdRoute;
+  AppProjectsProjectIdRoute: typeof AppProjectsProjectIdRoute
 }
 
 const AppProjectsRouteChildren: AppProjectsRouteChildren = {
   AppProjectsProjectIdRoute: AppProjectsProjectIdRoute,
-};
+}
 
-const AppProjectsRouteWithChildren = AppProjectsRoute._addFileChildren(AppProjectsRouteChildren);
+const AppProjectsRouteWithChildren = AppProjectsRoute._addFileChildren(
+  AppProjectsRouteChildren,
+)
 
 interface AppRouteChildren {
-  AppAlertsRoute: typeof AppAlertsRoute;
-  AppAssessmentsRoute: typeof AppAssessmentsRoute;
-  AppCommandRoute: typeof AppCommandRoute;
-  AppDashboardRoute: typeof AppDashboardRoute;
-  AppIntelRoute: typeof AppIntelRoute;
-  AppProfileRoute: typeof AppProfileRoute;
-  AppProjectsRoute: typeof AppProjectsRouteWithChildren;
-  AppSettingsRoute: typeof AppSettingsRoute;
-  AppThreatsRoute: typeof AppThreatsRoute;
-  AppAnalysisAchRoute: typeof AppAnalysisAchRoute;
-  AppAnalysisCogRoute: typeof AppAnalysisCogRoute;
-  AppAnalysisPmesiiRoute: typeof AppAnalysisPmesiiRoute;
-  AppAnalysisRiskRoute: typeof AppAnalysisRiskRoute;
-  AppAnalysisThreatsRoute: typeof AppAnalysisThreatsRoute;
-  AppAnalysisTrendsRoute: typeof AppAnalysisTrendsRoute;
-  AppDashboardsAlliancesRoute: typeof AppDashboardsAlliancesRoute;
-  AppDashboardsExecutiveRoute: typeof AppDashboardsExecutiveRoute;
-  AppDashboardsPoliticalRoute: typeof AppDashboardsPoliticalRoute;
-  AppDashboardsScenariosRoute: typeof AppDashboardsScenariosRoute;
-  AppDashboardsSynthesisRoute: typeof AppDashboardsSynthesisRoute;
+  AppAlertsRoute: typeof AppAlertsRoute
+  AppAssessmentsRoute: typeof AppAssessmentsRoute
+  AppCommandRoute: typeof AppCommandRoute
+  AppDashboardRoute: typeof AppDashboardRoute
+  AppIntelRoute: typeof AppIntelRoute
+  AppProfileRoute: typeof AppProfileRoute
+  AppProjectsRoute: typeof AppProjectsRouteWithChildren
+  AppSettingsRoute: typeof AppSettingsRoute
+  AppThreatsRoute: typeof AppThreatsRoute
+  AppAnalysisAchRoute: typeof AppAnalysisAchRoute
+  AppAnalysisCogRoute: typeof AppAnalysisCogRoute
+  AppAnalysisPmesiiRoute: typeof AppAnalysisPmesiiRoute
+  AppAnalysisRiskRoute: typeof AppAnalysisRiskRoute
+  AppAnalysisThreatsRoute: typeof AppAnalysisThreatsRoute
+  AppAnalysisTrendsRoute: typeof AppAnalysisTrendsRoute
+  AppDashboardsAlliancesRoute: typeof AppDashboardsAlliancesRoute
+  AppDashboardsExecutiveRoute: typeof AppDashboardsExecutiveRoute
+  AppDashboardsPoliticalRoute: typeof AppDashboardsPoliticalRoute
+  AppDashboardsScenariosRoute: typeof AppDashboardsScenariosRoute
+  AppDashboardsSynthesisRoute: typeof AppDashboardsSynthesisRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -595,29 +597,29 @@ const AppRouteChildren: AppRouteChildren = {
   AppDashboardsPoliticalRoute: AppDashboardsPoliticalRoute,
   AppDashboardsScenariosRoute: AppDashboardsScenariosRoute,
   AppDashboardsSynthesisRoute: AppDashboardsSynthesisRoute,
-};
+}
 
-const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren);
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 interface AuthRouteChildren {
-  AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute;
-  AuthLoginRoute: typeof AuthLoginRoute;
-  AuthRegisterRoute: typeof AuthRegisterRoute;
+  AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
+  AuthLoginRoute: typeof AuthLoginRoute
+  AuthRegisterRoute: typeof AuthRegisterRoute
 }
 
 const AuthRouteChildren: AuthRouteChildren = {
   AuthForgotPasswordRoute: AuthForgotPasswordRoute,
   AuthLoginRoute: AuthLoginRoute,
   AuthRegisterRoute: AuthRegisterRoute,
-};
+}
 
-const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren);
+const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
-};
+}
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>();
+  ._addFileTypes<FileRouteTypes>()

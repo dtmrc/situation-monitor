@@ -69,7 +69,7 @@ function CommandCenterPage() {
   return (
     <>
       {/* Full-screen map container - uses negative margins to fill AppShell padding */}
-      <div className="relative -m-6 h-[calc(100%+3rem)] w-[calc(100%+3rem)]">
+      <div className="fixed inset-0 z-10">
         {/* Mapbox GL Map */}
         <CommandMap onMapLoad={handleMapLoad} />
 

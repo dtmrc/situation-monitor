@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
 import { Shield } from 'lucide-react';
 
+import { MethodologyModal } from '@/components/MethodologyModal';
 import { api } from '@/lib/api';
 
 export const Route = createFileRoute('/_auth')({
@@ -23,7 +24,7 @@ function AuthLayout() {
           <div className="w-10 h-10 rounded bg-primary/20 flex items-center justify-center">
             <Shield className="w-6 h-6 text-primary" />
           </div>
-          <span className="text-xl font-semibold text-foreground tracking-tight">SITMON</span>
+          <span className="text-xl font-semibold text-foreground tracking-tight">ATLAS</span>
         </div>
 
         <div className="space-y-6">
@@ -40,7 +41,7 @@ function AuthLayout() {
 
         <div className="grid-bg absolute inset-0 opacity-20 pointer-events-none" />
 
-        <p className="text-sm text-muted-foreground">Powered by JP 5-0 Joint Planning Doctrine</p>
+        <MethodologyModal />
       </div>
 
       {/* Right side - Auth form */}

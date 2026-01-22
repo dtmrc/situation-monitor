@@ -60,7 +60,7 @@ export function Sidebar() {
               <Shield className="w-5 h-5 text-primary" />
             </div>
             {!collapsed && (
-              <span className="font-semibold text-foreground tracking-tight">SITMON</span>
+              <span className="font-semibold text-foreground tracking-tight">ATLAS</span>
             )}
           </div>
         </div>

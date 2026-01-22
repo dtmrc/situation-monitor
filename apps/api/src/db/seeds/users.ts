@@ -1,9 +1,13 @@
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
+import { hashPassword } from '../../lib/password';
 import { users } from '../schema';
 import type * as schema from '../schema';
 
 type DB = NodePgDatabase<typeof schema>;
+
+// Demo password for all seeded users
+const DEMO_PASSWORD = 'password123';
 
 export interface DemoUser {
   key: string;
@@ -57,12 +61,16 @@ const DEMO_USERS: DemoUser[] = [
 export async function seedUsers(db: DB): Promise<Record<string, string>> {
   const userIds: Record<string, string> = {};
 
+  // Hash the demo password once
+  const passwordHash = await hashPassword(DEMO_PASSWORD);
+
   for (const user of DEMO_USERS) {
     const [created] = await db
       .insert(users)
       .values({
         email: user.email,
         name: user.name,
+        passwordHash,
         createdAt: new Date(),
         updatedAt: new Date(),
       })
