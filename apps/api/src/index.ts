@@ -1,12 +1,19 @@
 import 'dotenv/config';
+import type { Server } from 'http';
+
 import { serve } from '@hono/node-server';
 
 import { createApp } from './app';
 import { closeDatabase } from './db';
+import { registerAllAdapters } from './feeds/adapters';
+import { syncFeedSchedules, stopAllFeeds } from './feeds/scheduler';
+import { startWorkers, shutdownWorkers } from './jobs/shutdown';
 import { shutdownRedis, redis } from './lib/redis';
+import { createWebSocketRoutes, shutdownWebSockets } from './websocket';
 
 const app = createApp();
 const PORT = parseInt(process.env.PORT || '4000', 10);
+const ENABLE_WORKERS = process.env.ENABLE_WORKERS !== 'false';
 
 let isShuttingDown = false;
 let server: ReturnType<typeof serve>;
@@ -19,14 +26,44 @@ async function startServer() {
     console.warn('[Redis] Connection failed, continuing without Redis:', error);
   }
 
-  // Start HTTP server
-  server = serve({
-    fetch: app.fetch,
-    port: PORT,
-  });
+  // Create WebSocket routes
+  const { wsApp, injectWebSocket } = createWebSocketRoutes();
 
-  console.log(`[Server] Running on http://localhost:${PORT}`);
+  // Mount WebSocket routes
+  app.route('/api/ws', wsApp);
+
+  // Start HTTP server with WebSocket support
+  server = serve(
+    {
+      fetch: app.fetch,
+      port: PORT,
+    },
+    () => {
+      console.log(`[Server] Running on http://localhost:${PORT}`);
+    }
+  );
+
+  // Inject WebSocket handling into the server
+  // Note: server is the HTTP server returned by serve()
+  injectWebSocket(server as unknown as Server);
+
+  console.log(`[Server] WebSocket available at ws://localhost:${PORT}/api/ws/map/:projectId`);
   console.log(`[Server] Environment: ${process.env.NODE_ENV || 'development'}`);
+
+  // Register all feed adapters
+  registerAllAdapters();
+
+  // Start workers if enabled
+  if (ENABLE_WORKERS) {
+    console.log('[Server] Starting background workers...');
+    await startWorkers();
+
+    // Sync feed schedules with database
+    console.log('[Server] Syncing feed schedules...');
+    await syncFeedSchedules();
+  } else {
+    console.log('[Server] Workers disabled (ENABLE_WORKERS=false)');
+  }
 }
 
 // Graceful shutdown handler
@@ -45,7 +82,11 @@ async function gracefulShutdown(signal: string) {
   }, 30000);
 
   try {
-    // 1. Stop accepting new connections
+    // 1. Stop feed schedulers (no new jobs)
+    console.log('[Shutdown] Stopping feed schedulers...');
+    await stopAllFeeds();
+
+    // 2. Stop accepting new HTTP connections
     console.log('[Shutdown] Closing HTTP server...');
     await new Promise<void>((resolve, reject) => {
       server.close((err) => {
@@ -54,15 +95,25 @@ async function gracefulShutdown(signal: string) {
       });
     });
 
-    // 2. Wait briefly for in-flight requests
+    // 3. Shutdown WebSocket connections
+    console.log('[Shutdown] Closing WebSocket connections...');
+    await shutdownWebSockets();
+
+    // 4. Shutdown workers
+    if (ENABLE_WORKERS) {
+      console.log('[Shutdown] Stopping workers...');
+      await shutdownWorkers();
+    }
+
+    // 5. Wait briefly for in-flight requests
     console.log('[Shutdown] Waiting for in-flight requests...');
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    // 3. Close database connections
+    // 6. Close database connections
     console.log('[Shutdown] Closing database connections...');
     await closeDatabase();
 
-    // 4. Close Redis connections
+    // 7. Close Redis connections
     console.log('[Shutdown] Closing Redis connections...');
     await shutdownRedis();
 

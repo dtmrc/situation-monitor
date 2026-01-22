@@ -1,12 +1,13 @@
 import { Hono } from 'hono';
+import { compress } from 'hono/compress';
 import { cors } from 'hono/cors';
 import { secureHeaders } from 'hono/secure-headers';
-import { compress } from 'hono/compress';
 
-import { errorHandler } from './middleware/errorHandler';
+import { metricsRoutes } from './metrics';
 import { correlationMiddleware } from './middleware/correlation';
-import { requestLoggerMiddleware } from './middleware/requestLogger';
+import { errorHandler } from './middleware/errorHandler';
 import { apiRateLimiter } from './middleware/rateLimit';
+import { requestLoggerMiddleware } from './middleware/requestLogger';
 import { routes, health } from './routes';
 import type { AppEnv } from './types';
 
@@ -33,8 +34,19 @@ export function createApp() {
       origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
       credentials: true,
       allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token', 'X-Request-ID', 'X-API-Version'],
-      exposeHeaders: ['X-Request-ID', 'X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset'],
+      allowHeaders: [
+        'Content-Type',
+        'Authorization',
+        'X-CSRF-Token',
+        'X-Request-ID',
+        'X-API-Version',
+      ],
+      exposeHeaders: [
+        'X-Request-ID',
+        'X-RateLimit-Limit',
+        'X-RateLimit-Remaining',
+        'X-RateLimit-Reset',
+      ],
     })
   );
 
@@ -55,6 +67,9 @@ export function createApp() {
       version: process.env.npm_package_version || '0.0.1',
     });
   });
+
+  // Metrics endpoint (no auth for Prometheus scraping)
+  app.route('/metrics', metricsRoutes);
 
   // Mount API routes
   app.route('/api', routes);

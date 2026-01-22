@@ -1,11 +1,12 @@
 import { Hono } from 'hono';
 
-import { auth } from './auth';
-import { health } from './health';
-import { projectRoutes } from './projects';
 import { assessmentRoutes } from './assessments';
-import { pmesiiRoutes } from './pmesii';
+import { auth } from './auth';
+import { feedRoutes } from './feeds';
+import { health } from './health';
 import { orgRoutes } from './organizations';
+import { pmesiiRoutes } from './pmesii';
+import { projectRoutes } from './projects';
 
 // Version 1 API routes
 const v1 = new Hono();
@@ -18,6 +19,7 @@ v1.route('/projects', projectRoutes);
 v1.route('/', assessmentRoutes); // Nested under projects for list, flat for single
 v1.route('/', pmesiiRoutes); // Factor routes
 v1.route('/organizations', orgRoutes);
+v1.route('/feeds', feedRoutes); // Feed management routes
 
 // Main router with versioning
 const routes = new Hono();
