@@ -1,6 +1,7 @@
-import { createMiddleware } from 'hono/factory';
 import { randomBytes, timingSafeEqual } from 'crypto';
+
 import { getCookie, setCookie } from 'hono/cookie';
+import { createMiddleware } from 'hono/factory';
 
 import { ForbiddenError } from '../lib/errors';
 import type { AppEnv } from '../types';
@@ -51,7 +52,10 @@ export const csrfProtection = createMiddleware<AppEnv>(async (c, next) => {
 });
 
 // Endpoint to get CSRF token for SPA
-export function csrfTokenHandler(c: { get: (key: string) => string; json: (data: unknown) => Response }) {
+export function csrfTokenHandler(c: {
+  get: (key: string) => string;
+  json: (data: unknown) => Response;
+}) {
   const token = c.get('csrfToken');
   return c.json({ csrfToken: token });
 }

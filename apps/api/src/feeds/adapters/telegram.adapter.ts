@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  * Telegram OSINT Feed Adapter
@@ -168,9 +167,9 @@ export class TelegramAdapter extends BaseFeedAdapter {
     let match;
 
     while ((match = itemRegex.exec(xml)) !== null) {
-      const itemXml = match[1];
+      const itemXml = match[1] ?? '';
 
-      const title = this.extractXmlTag(itemXml, 'title') || 'Untitled';
+      const title = this.extractXmlTag(itemXml, 'title') ?? 'Untitled';
       const description = this.extractXmlTag(itemXml, 'description');
       const link = this.extractXmlTag(itemXml, 'link');
       const pubDate = this.extractXmlTag(itemXml, 'pubDate');
@@ -247,7 +246,7 @@ export class TelegramAdapter extends BaseFeedAdapter {
     // Handle regular content
     const regex = new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`, 'i');
     const match = regex.exec(xml);
-    return match ? match[1].trim() : undefined;
+    return match?.[1]?.trim();
   }
 
   /**

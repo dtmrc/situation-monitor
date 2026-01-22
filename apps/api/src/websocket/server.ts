@@ -24,6 +24,7 @@ import { redisSub, redisPub } from '../lib/redis';
 import type { AppEnv } from '../types';
 
 import { getHeartbeatManager } from './heartbeat';
+import { validateOrigin } from './origin';
 import { checkConnectionLimit, removeConnection, MessageRateLimiter } from './rateLimit';
 import { registerConnection, CLOSE_CODES } from './shutdown';
 import {
@@ -68,6 +69,17 @@ export function createWebSocketRoutes() {
     upgradeWebSocket(async (c) => {
       const projectId = c.req.param('projectId');
       const ip = c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || 'unknown';
+      const origin = c.req.header('origin');
+
+      // Validate origin
+      if (!validateOrigin(origin)) {
+        console.warn(`[WS] Rejected connection from invalid origin: ${origin}`);
+        return {
+          onOpen: (_, ws) => {
+            (ws as unknown as WebSocket).close(CLOSE_CODES.POLICY_VIOLATION, 'Invalid origin');
+          },
+        };
+      }
 
       // Check connection rate limit
       const connLimit = await checkConnectionLimit(ip);
@@ -437,6 +449,11 @@ function isValidChannel(channel: string): boolean {
 
   const prefix = parts[0];
   const id = parts[parts.length - 1];
+
+  // Check prefix and id exist
+  if (!prefix || !id) {
+    return false;
+  }
 
   // Check prefix
   if (!['feed', 'alerts', 'project'].includes(prefix)) {

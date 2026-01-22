@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /**
  * News/OSINT Feed Adapter
  *
@@ -109,7 +108,7 @@ export class NewsAdapter extends BaseFeedAdapter {
 
     // Categories
     const categories = filters?.categories || (configFilters?.categories as string[]);
-    if (categories?.length) {
+    if (categories?.length && categories[0]) {
       params.set('category', categories[0]); // NewsAPI only supports one category
     }
 

@@ -14,7 +14,7 @@
  */
 
 import { Worker, type Job } from 'bullmq';
-import { eq } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
 import { db } from '../../db';
@@ -33,7 +33,10 @@ const ALERT_CHANNEL_PREFIX = 'alerts:';
 interface NAIWithTripwires {
   id: string;
   name: string;
-  geometry: unknown;
+  polygon: string | null; // GeoJSON string
+  latitude: number | null;
+  longitude: number | null;
+  radius: number | null;
   projectId: string;
   tripwires: {
     id: string;
@@ -49,26 +52,58 @@ interface NAIWithTripwires {
 }
 
 /**
- * Check if a point is within a polygon (simplified check)
- * For production, use PostGIS ST_Contains
+ * Check if a point is within a NAI area
+ * Supports polygon (GeoJSON string) or circular area (lat/lng + radius)
  */
-function pointInPolygon(lat: number, lng: number, geometry: unknown): boolean {
-  // If geometry is GeoJSON polygon
-  if (typeof geometry === 'object' && geometry !== null) {
-    const geo = geometry as { type?: string; coordinates?: number[][][] };
+function isPointInNAI(lat: number, lng: number, nai: NAIWithTripwires): boolean {
+  // Check polygon if available
+  if (nai.polygon) {
+    try {
+      const geometry = JSON.parse(nai.polygon) as { type?: string; coordinates?: number[][][] };
 
-    if (geo.type === 'Polygon' && geo.coordinates) {
-      return isPointInPolygon(lat, lng, geo.coordinates[0]);
-    }
-
-    // Simple bounding box check for other geometry types
-    if ('bbox' in geo) {
-      const bbox = (geo as { bbox: number[] }).bbox;
-      return lat >= bbox[1] && lat <= bbox[3] && lng >= bbox[0] && lng <= bbox[2];
+      if (geometry.type === 'Polygon' && geometry.coordinates) {
+        const ring = geometry.coordinates[0];
+        if (ring) {
+          return isPointInPolygon(lat, lng, ring);
+        }
+      }
+    } catch {
+      // Invalid polygon JSON, fall through to radius check
     }
   }
 
+  // Check circular area if lat/lng/radius are available
+  if (nai.latitude !== null && nai.longitude !== null && nai.radius !== null) {
+    return isPointInRadius(lat, lng, nai.latitude, nai.longitude, nai.radius);
+  }
+
   return false;
+}
+
+/**
+ * Check if a point is within a radius (in meters)
+ */
+function isPointInRadius(
+  lat: number,
+  lng: number,
+  centerLat: number,
+  centerLng: number,
+  radiusMeters: number
+): boolean {
+  // Haversine distance calculation
+  const R = 6371000; // Earth's radius in meters
+  const dLat = ((centerLat - lat) * Math.PI) / 180;
+  const dLng = ((centerLng - lng) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat * Math.PI) / 180) *
+      Math.cos((centerLat * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distance = R * c;
+
+  return distance <= radiusMeters;
 }
 
 /**
@@ -79,10 +114,21 @@ function isPointInPolygon(lat: number, lng: number, polygon: number[][]): boolea
   const n = polygon.length;
 
   for (let i = 0, j = n - 1; i < n; j = i++) {
-    const [xi, yi] = polygon[i];
-    const [xj, yj] = polygon[j];
+    const pi = polygon[i];
+    const pj = polygon[j];
+    if (!pi || !pj) continue;
 
-    if (yi > lat !== yj > lat && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) {
+    const [xi, yi] = pi;
+    const [xj, yj] = pj;
+
+    if (
+      xi !== undefined &&
+      yi !== undefined &&
+      xj !== undefined &&
+      yj !== undefined &&
+      yi > lat !== yj > lat &&
+      lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi
+    ) {
       inside = !inside;
     }
   }
@@ -184,23 +230,58 @@ export function createTripwireWorker(): Worker<TripwireCheckJobData> {
 
       console.log(`[Tripwire] Checking item ${feedItemId} at ${latitude},${longitude}`);
 
-      // Find NAIs in this project with active tripwires
-      const naisWithTripwires = (await db.query.nais.findMany({
+      // Find NAIs in this project
+      const projectNais = await db.query.nais.findMany({
         where: eq(nais.projectId, projectId),
-        with: {
-          tripwires: {
-            where: eq(tripwires.isActive, true),
-          },
-        },
-      })) as unknown as NAIWithTripwires[];
+      });
+
+      // Get active tripwires for these NAIs
+      const naiIds = projectNais.map((n) => n.id);
+      const activeTripwires =
+        naiIds.length > 0
+          ? await db
+              .select()
+              .from(tripwires)
+              .where(and(inArray(tripwires.naiId, naiIds), eq(tripwires.isActive, true)))
+          : [];
+
+      // Group tripwires by NAI
+      const tripwiresByNai = new Map<string, typeof activeTripwires>();
+      for (const tw of activeTripwires) {
+        const existing = tripwiresByNai.get(tw.naiId) || [];
+        existing.push(tw);
+        tripwiresByNai.set(tw.naiId, existing);
+      }
+
+      // Build NAIs with tripwires
+      const naisWithTripwires: NAIWithTripwires[] = projectNais.map((n) => ({
+        id: n.id,
+        name: n.name,
+        polygon: n.polygon,
+        latitude: n.latitude,
+        longitude: n.longitude,
+        radius: n.radius,
+        projectId: n.projectId,
+        tripwires: (tripwiresByNai.get(n.id) || []).map((tw) => ({
+          id: tw.id,
+          name: tw.name,
+          condition: tw.condition,
+          threshold: tw.threshold,
+          currentValue: tw.currentValue,
+          isTriggered: tw.isTriggered,
+          alertSeverity: tw.alertSeverity,
+          notifyUsers: tw.notifyUsers,
+          isActive: tw.isActive,
+        })),
+      }));
 
       let checkedCount = 0;
       let triggeredCount = 0;
       const alertsCreated: string[] = [];
 
       for (const nai of naisWithTripwires) {
-        // Check if point is within NAI geometry
-        if (!nai.geometry || !pointInPolygon(latitude, longitude, nai.geometry)) {
+        // Check if point is within NAI area
+        if (!isPointInNAI(latitude, longitude, nai)) {
           continue;
         }
 

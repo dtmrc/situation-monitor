@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
 
 import { checkDatabaseHealth } from '../db';
-import { checkRedisHealth } from '../lib/redis';
 import { circuitBreakers } from '../lib/circuitBreaker';
+import { checkRedisHealth } from '../lib/redis';
 
 const health = new Hono();
 

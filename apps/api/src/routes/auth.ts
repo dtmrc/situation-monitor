@@ -1,17 +1,18 @@
+import { randomBytes } from 'crypto';
+
+import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { eq } from 'drizzle-orm';
-import { randomBytes } from 'crypto';
 
 import { db } from '../db';
 import { users } from '../db/schema';
+import { ConflictError, UnauthorizedError } from '../lib/errors';
 import { generateTokenPair, verifyRefreshToken } from '../lib/jwt';
 import { hashPassword, verifyPassword } from '../lib/password';
-import { ConflictError, UnauthorizedError } from '../lib/errors';
-import { validateBody } from '../middleware/validation';
+import { redis } from '../lib/redis';
 import { authMiddleware } from '../middleware/auth';
 import { authRateLimiter, registerRateLimiter } from '../middleware/rateLimit';
-import { redis } from '../lib/redis';
+import { validateBody } from '../middleware/validation';
 import type { AppEnv } from '../types';
 
 const auth = new Hono<AppEnv>();

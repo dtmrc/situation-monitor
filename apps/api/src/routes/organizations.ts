@@ -1,13 +1,14 @@
+import { randomBytes } from 'crypto';
+
+import { eq, and } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { eq, and } from 'drizzle-orm';
-import { randomBytes } from 'crypto';
 
 import { db } from '../db';
 import { organizations, organizationMembers, organizationInvitations, users } from '../db/schema';
+import { ForbiddenError, NotFoundError, ConflictError } from '../lib/errors';
 import { authMiddleware } from '../middleware/auth';
 import { validateBody } from '../middleware/validation';
-import { ForbiddenError, NotFoundError, ConflictError } from '../lib/errors';
 import type { AppEnv } from '../types';
 
 const orgRoutes = new Hono<AppEnv>();
@@ -41,7 +42,10 @@ type UpdateMemberRoleInput = z.infer<typeof updateMemberRoleSchema>;
 // Helper functions
 async function verifyOrgMembership(orgId: string, userId: string) {
   const membership = await db.query.organizationMembers.findFirst({
-    where: and(eq(organizationMembers.organizationId, orgId), eq(organizationMembers.userId, userId)),
+    where: and(
+      eq(organizationMembers.organizationId, orgId),
+      eq(organizationMembers.userId, userId)
+    ),
   });
 
   if (!membership) {
@@ -134,7 +138,10 @@ orgRoutes.get('/:orgId', async (c) => {
   const orgId = c.req.param('orgId');
 
   const membership = await db.query.organizationMembers.findFirst({
-    where: and(eq(organizationMembers.organizationId, orgId), eq(organizationMembers.userId, user.sub)),
+    where: and(
+      eq(organizationMembers.organizationId, orgId),
+      eq(organizationMembers.userId, user.sub)
+    ),
     with: { organization: true },
   });
 
@@ -233,7 +240,10 @@ orgRoutes.post('/invitations/:token/accept', async (c) => {
   const token = c.req.param('token');
 
   const invitation = await db.query.organizationInvitations.findFirst({
-    where: and(eq(organizationInvitations.token, token), eq(organizationInvitations.email, user.email)),
+    where: and(
+      eq(organizationInvitations.token, token),
+      eq(organizationInvitations.email, user.email)
+    ),
     with: { organization: true },
   });
 

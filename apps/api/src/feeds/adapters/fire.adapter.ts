@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
 /**
  * Fire Detection Feed Adapter
  *
@@ -75,7 +72,7 @@ export class FireAdapter extends BaseFeedAdapter {
     const configFilters = config.filters as Record<string, unknown>;
 
     // Get bounds (required for FIRMS API)
-    const bounds = filters?.bounds || (configFilters?.bounds as typeof filters.bounds);
+    const bounds = filters?.bounds || (configFilters?.bounds as FeedFilterOptions['bounds']);
 
     if (!bounds) {
       return {
@@ -152,7 +149,7 @@ export class FireAdapter extends BaseFeedAdapter {
 
     // Filter by bounds if using global endpoint
     if (!mapKey) {
-      return records.filter((r) => {
+      return records.filter((r: FIRMSRecord) => {
         const lat = parseFloat(r.latitude);
         const lon = parseFloat(r.longitude);
         return lat >= south && lat <= north && lon >= west && lon <= east;
@@ -367,9 +364,12 @@ export class FireAdapter extends BaseFeedAdapter {
   private parseTimestamp(date: string, time: string): Date {
     // Date format: YYYY-MM-DD
     // Time format: HHMM
-    const [year, month, day] = date.split('-').map(Number);
-    const hour = parseInt(time.slice(0, 2));
-    const minute = parseInt(time.slice(2, 4));
+    const parts = date.split('-').map(Number);
+    const year = parts[0] ?? 1970;
+    const month = parts[1] ?? 1;
+    const day = parts[2] ?? 1;
+    const hour = parseInt(time.slice(0, 2)) || 0;
+    const minute = parseInt(time.slice(2, 4)) || 0;
 
     return new Date(Date.UTC(year, month - 1, day, hour, minute));
   }

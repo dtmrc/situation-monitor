@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  * Maritime Tracking Feed Adapter
@@ -146,7 +144,7 @@ export class MaritimeAdapter extends BaseFeedAdapter {
     }
 
     // Get bounds from filters or config
-    const bounds = filters?.bounds || (configFilters?.bounds as typeof filters.bounds);
+    const bounds = filters?.bounds || (configFilters?.bounds as FeedFilterOptions['bounds']);
 
     if (!bounds) {
       return {

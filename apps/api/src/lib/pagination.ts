@@ -1,5 +1,5 @@
-import { z } from 'zod';
 import { gt, lt, type SQL } from 'drizzle-orm';
+import { z } from 'zod';
 
 import type { PaginatedResult } from '../types';
 
@@ -59,9 +59,9 @@ export function cursorCondition<T extends { id: unknown; createdAt: unknown }>(
   const cursorDate = new Date(decoded.createdAt);
 
   if (direction === 'forward') {
-    return lt(table.createdAt as unknown as SQL, cursorDate);
+    return lt(table.createdAt as SQL, cursorDate);
   } else {
-    return gt(table.createdAt as unknown as SQL, cursorDate);
+    return gt(table.createdAt as SQL, cursorDate);
   }
 }
 

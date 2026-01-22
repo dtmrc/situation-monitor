@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /**
  * Flight Tracking Feed Adapter
  *
@@ -111,7 +109,7 @@ export class FlightAdapter extends BaseFeedAdapter {
     }
 
     // Determine which API endpoint to use
-    const bounds = filters?.bounds || (configFilters?.bounds as typeof filters.bounds);
+    const bounds = filters?.bounds || (configFilters?.bounds as FeedFilterOptions['bounds']);
 
     if (bounds) {
       return this.fetchByBounds(apiKey as string, bounds, filters);
@@ -256,7 +254,7 @@ export class FlightAdapter extends BaseFeedAdapter {
           squawk: ac.squawk,
           emergency: ac.emergency,
           category: ac.category,
-          onGround: ac.alt_baro === 0 || ac.alt_baro === 'ground',
+          onGround: ac.alt_baro === 0,
           isMilitary: this.isMilitarySquawk(ac.squawk),
           alerts,
         },
@@ -288,9 +286,11 @@ export class FlightAdapter extends BaseFeedAdapter {
 
     // Check emergency squawk
     if (ac.squawk && EMERGENCY_SQUAWKS[ac.squawk]) {
-      const emergency = EMERGENCY_SQUAWKS[ac.squawk];
-      alerts.push(`Emergency: ${emergency.meaning} (Squawk ${ac.squawk})`);
-      severity = emergency.severity;
+      const emergencyInfo = EMERGENCY_SQUAWKS[ac.squawk];
+      if (emergencyInfo) {
+        alerts.push(`Emergency: ${emergencyInfo.meaning} (Squawk ${ac.squawk})`);
+        severity = emergencyInfo.severity;
+      }
     }
 
     // Check emergency field

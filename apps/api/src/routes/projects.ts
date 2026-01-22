@@ -1,13 +1,13 @@
+import { eq, and, desc, isNull } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { eq, and, desc, isNull } from 'drizzle-orm';
 
 import { db } from '../db';
 import { projects, projectMembers, assessments, organizationMembers } from '../db/schema';
+import { cacheDelete, cacheKeys } from '../lib/cache';
+import { NotFoundError, ForbiddenError } from '../lib/errors';
 import { authMiddleware } from '../middleware/auth';
 import { validateBody } from '../middleware/validation';
-import { NotFoundError, ForbiddenError } from '../lib/errors';
-import { cacheDelete, cacheKeys } from '../lib/cache';
 import type { AppEnv } from '../types';
 
 const projectRoutes = new Hono<AppEnv>();
@@ -34,7 +34,10 @@ type UpdateProjectInput = z.infer<typeof updateProjectSchema>;
 // Helper: verify user has org membership
 async function verifyOrgMembership(orgId: string, userId: string) {
   const membership = await db.query.organizationMembers.findFirst({
-    where: and(eq(organizationMembers.organizationId, orgId), eq(organizationMembers.userId, userId)),
+    where: and(
+      eq(organizationMembers.organizationId, orgId),
+      eq(organizationMembers.userId, userId)
+    ),
   });
 
   if (!membership) {

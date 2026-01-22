@@ -1,7 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-base-to-string */
-/* eslint-disable @typescript-eslint/restrict-template-expressions */
 /**
  * Civil Unrest Feed Adapter
  *
@@ -395,7 +391,7 @@ export class CivilUnrestAdapter extends BaseFeedAdapter {
  * Format date as YYYY-MM-DD for ACLED API
  */
 function formatDate(date: Date): string {
-  return date.toISOString().split('T')[0];
+  return date.toISOString().split('T')[0] ?? '';
 }
 
 // Export singleton instance

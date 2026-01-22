@@ -44,8 +44,10 @@ metricsRoutes.get('/json', async (c) => {
     const match = line.match(/^([^\s{]+)(?:\{([^}]+)\})?\s+(.+)$/);
     if (match) {
       const [, name, labels, value] = match;
-      const key = labels ? `${name}{${labels}}` : name;
-      parsed[key] = parseFloat(value) || value;
+      if (name && value) {
+        const key = labels ? `${name}{${labels}}` : name;
+        parsed[key] = parseFloat(value) || value;
+      }
     }
   }
 

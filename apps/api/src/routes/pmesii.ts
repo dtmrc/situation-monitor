@@ -1,13 +1,13 @@
+import { eq, and, isNull } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { eq, and, isNull } from 'drizzle-orm';
 
 import { db } from '../db';
 import { assessments, factors, factorEvidence, organizationMembers } from '../db/schema';
+import { cacheDelete, cacheKeys } from '../lib/cache';
+import { NotFoundError, ForbiddenError } from '../lib/errors';
 import { authMiddleware } from '../middleware/auth';
 import { validateBody } from '../middleware/validation';
-import { NotFoundError, ForbiddenError } from '../lib/errors';
-import { cacheDelete, cacheKeys } from '../lib/cache';
 import type { AppEnv } from '../types';
 
 const pmesiiRoutes = new Hono<AppEnv>();
@@ -103,38 +103,42 @@ pmesiiRoutes.get('/assessments/:assessmentId/factors', async (c) => {
 });
 
 // Create factor
-pmesiiRoutes.post('/assessments/:assessmentId/factors', validateBody(createFactorSchema), async (c) => {
-  const user = c.get('user');
-  const assessmentId = c.req.param('assessmentId');
-  const body = c.get('validatedBody') as CreateFactorInput;
+pmesiiRoutes.post(
+  '/assessments/:assessmentId/factors',
+  validateBody(createFactorSchema),
+  async (c) => {
+    const user = c.get('user');
+    const assessmentId = c.req.param('assessmentId');
+    const body = c.get('validatedBody') as CreateFactorInput;
 
-  await verifyAssessmentAccess(assessmentId, user.sub);
+    await verifyAssessmentAccess(assessmentId, user.sub);
 
-  // Get count for sort order
-  const existingCount = await db.query.factors.findMany({
-    where: and(eq(factors.assessmentId, assessmentId), eq(factors.domain, body.domain)),
-  });
+    // Get count for sort order
+    const existingCount = await db.query.factors.findMany({
+      where: and(eq(factors.assessmentId, assessmentId), eq(factors.domain, body.domain)),
+    });
 
-  const [factor] = await db
-    .insert(factors)
-    .values({
-      assessmentId,
-      domain: body.domain,
-      title: body.title,
-      description: body.description,
-      analysis: body.analysis,
-      impact: body.impact,
-      trend: body.trend,
-      confidence: body.confidence,
-      sortOrder: existingCount.length,
-    })
-    .returning();
+    const [factor] = await db
+      .insert(factors)
+      .values({
+        assessmentId,
+        domain: body.domain,
+        title: body.title,
+        description: body.description,
+        analysis: body.analysis,
+        impact: body.impact,
+        trend: body.trend,
+        confidence: body.confidence,
+        sortOrder: existingCount.length,
+      })
+      .returning();
 
-  // Invalidate cache
-  await cacheDelete(cacheKeys.factors(assessmentId));
+    // Invalidate cache
+    await cacheDelete(cacheKeys.factors(assessmentId));
 
-  return c.json({ factor }, 201);
-});
+    return c.json({ factor }, 201);
+  }
+);
 
 // Update factor
 pmesiiRoutes.patch('/factors/:factorId', validateBody(updateFactorSchema), async (c) => {

@@ -127,12 +127,13 @@ export const pirsRelations = relations(pirs, ({ one, many }) => ({
   collectionTasks: many(collectionTasks),
 }));
 
-export const naisRelations = relations(nais, ({ one, many }) => ({
+// Note: tripwires relation is defined in indicators.ts to avoid circular imports
+// The tripwires table has naiId foreign key pointing to nais
+export const naisRelations = relations(nais, ({ one }) => ({
   project: one(projects, {
     fields: [nais.projectId],
     references: [projects.id],
   }),
-  collectionTasks: many(collectionTasks),
 }));
 
 export const sourcesRelations = relations(sources, ({ one, many }) => ({

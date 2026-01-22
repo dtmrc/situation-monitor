@@ -4,11 +4,13 @@ import { ZodError } from 'zod';
 
 import { ValidationError } from '../lib/errors';
 
-export function validateBody<Output, Def extends ZodTypeDef, Input>(schema: ZodType<Output, Def, Input>) {
+export function validateBody<Output, Def extends ZodTypeDef, Input>(
+  schema: ZodType<Output, Def, Input>
+) {
   return createMiddleware(async (c, next) => {
     try {
       const body: unknown = await c.req.json();
-      const validated = schema.parse(body) as Output;
+      const validated = schema.parse(body);
       c.set('validatedBody' as never, validated as never);
       await next();
     } catch (error) {
@@ -20,11 +22,13 @@ export function validateBody<Output, Def extends ZodTypeDef, Input>(schema: ZodT
   });
 }
 
-export function validateQuery<Output, Def extends ZodTypeDef, Input>(schema: ZodType<Output, Def, Input>) {
+export function validateQuery<Output, Def extends ZodTypeDef, Input>(
+  schema: ZodType<Output, Def, Input>
+) {
   return createMiddleware(async (c, next) => {
     try {
       const query: unknown = c.req.query();
-      const validated = schema.parse(query) as Output;
+      const validated = schema.parse(query);
       c.set('validatedQuery' as never, validated as never);
       await next();
     } catch (error) {
@@ -36,11 +40,13 @@ export function validateQuery<Output, Def extends ZodTypeDef, Input>(schema: Zod
   });
 }
 
-export function validateParams<Output, Def extends ZodTypeDef, Input>(schema: ZodType<Output, Def, Input>) {
+export function validateParams<Output, Def extends ZodTypeDef, Input>(
+  schema: ZodType<Output, Def, Input>
+) {
   return createMiddleware(async (c, next) => {
     try {
       const params: unknown = c.req.param();
-      const validated = schema.parse(params) as Output;
+      const validated = schema.parse(params);
       c.set('validatedParams' as never, validated as never);
       await next();
     } catch (error) {

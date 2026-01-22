@@ -95,7 +95,7 @@ export async function getRetentionStatus(): Promise<{
 
   return {
     scheduled: !!scheduledJob,
-    nextRun: scheduledJob ? new Date(scheduledJob.next) : undefined,
+    nextRun: scheduledJob?.next ? new Date(scheduledJob.next) : undefined,
     lastRun: lastCompleted
       ? {
           completedAt: new Date(lastCompleted.finishedOn!),
