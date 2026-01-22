@@ -22,6 +22,10 @@ export { maritimeAdapter } from './maritime.adapter';
 export { fireAdapter } from './fire.adapter';
 export { telegramAdapter } from './telegram.adapter';
 
+// Export specialized unrest adapters
+export { acledAdapter, ACLEDAdapter } from './unrest/acled.adapter';
+export { gdeltEventsAdapter, GDELTEventsAdapter } from './unrest/gdelt-events.adapter';
+
 // All available adapters
 export const allAdapters = [
   newsAdapter,

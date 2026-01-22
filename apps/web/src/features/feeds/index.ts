@@ -21,3 +21,8 @@ export type {
   FeedHealthStatus,
   FeedConfigPanelProps,
 } from './components/FeedConfigPanel';
+
+export { NewsFeedConfig } from './components/NewsFeedConfig';
+
+// Analytics panels
+export { CivilUnrestAnalyticsPanel } from './panels/CivilUnrestAnalyticsPanel';
