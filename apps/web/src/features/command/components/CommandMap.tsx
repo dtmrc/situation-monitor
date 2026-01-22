@@ -3,15 +3,25 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { useEffect, useRef, useState } from 'react';
 
 import { useMapStore } from '../store';
+import type { ViewportBounds } from '../types';
 
 // Set Mapbox token from environment
 mapboxgl.accessToken = (import.meta.env.VITE_MAPBOX_TOKEN as string) || '';
 
-interface CommandMapProps {
-  onMapLoad?: (map: mapboxgl.Map) => void;
+export interface MapFeatureClickEvent {
+  featureId: string;
+  layerType: 'alert' | 'marker' | 'track' | 'actor';
+  coordinates: [number, number];
+  properties: Record<string, unknown>;
 }
 
-export function CommandMap({ onMapLoad }: CommandMapProps) {
+interface CommandMapProps {
+  onMapLoad?: (map: mapboxgl.Map) => void;
+  onBoundsChange?: (bounds: ViewportBounds, zoom: number) => void;
+  onFeatureClick?: (event: MapFeatureClickEvent) => void;
+}
+
+export function CommandMap({ onMapLoad, onBoundsChange, onFeatureClick }: CommandMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -64,6 +74,20 @@ export function CommandMap({ onMapLoad }: CommandMapProps) {
       setMapLoaded(true);
       setLoading(false);
       onMapLoad?.(map);
+
+      // Report initial bounds
+      const mapBounds = map.getBounds();
+      if (mapBounds) {
+        onBoundsChange?.(
+          {
+            west: mapBounds.getWest(),
+            south: mapBounds.getSouth(),
+            east: mapBounds.getEast(),
+            north: mapBounds.getNorth(),
+          },
+          map.getZoom()
+        );
+      }
     });
 
     // Track mouse position for coordinates display
@@ -78,15 +102,30 @@ export function CommandMap({ onMapLoad }: CommandMapProps) {
       setCursor(null);
     });
 
-    // Sync view state changes
+    // Sync view state changes and report bounds
     map.on('moveend', () => {
       const center = map.getCenter();
+      const zoom = map.getZoom();
       setViewState({
         center: [center.lng, center.lat],
-        zoom: map.getZoom(),
+        zoom,
         bearing: map.getBearing(),
         pitch: map.getPitch(),
       });
+
+      // Extract and report viewport bounds
+      const mapBounds = map.getBounds();
+      if (mapBounds) {
+        onBoundsChange?.(
+          {
+            west: mapBounds.getWest(),
+            south: mapBounds.getSouth(),
+            east: mapBounds.getEast(),
+            north: mapBounds.getNorth(),
+          },
+          zoom
+        );
+      }
     });
 
     // Deselect on map click (not on features)
@@ -101,13 +140,59 @@ export function CommandMap({ onMapLoad }: CommandMapProps) {
       }
     });
 
-    // Change cursor on hoverable features
-    map.on('mouseenter', 'command-markers', () => {
-      map.getCanvas().style.cursor = 'pointer';
+    // Interactive layers for click/hover
+    const interactiveLayers = [
+      'command-alerts',
+      'command-markers',
+      'command-flight',
+      'command-maritime',
+      'command-actors',
+    ];
+
+    // Click handler for interactive features
+    interactiveLayers.forEach((layerId) => {
+      map.on('click', layerId, (e) => {
+        if (!e.features || e.features.length === 0) return;
+
+        const feature = e.features[0];
+        if (!feature) return;
+        const props = feature.properties || {};
+        const geometry = feature.geometry;
+
+        // Get coordinates from geometry
+        let coordinates: [number, number] = [0, 0];
+        if (geometry.type === 'Point') {
+          coordinates = geometry.coordinates as [number, number];
+        }
+
+        // Determine layer type from layer ID
+        let layerType: 'alert' | 'marker' | 'track' | 'actor' = 'marker';
+        if (layerId === 'command-alerts') layerType = 'alert';
+        else if (layerId === 'command-flight' || layerId === 'command-maritime')
+          layerType = 'track';
+        else if (layerId === 'command-actors') layerType = 'actor';
+
+        onFeatureClick?.({
+          featureId: props.id as string,
+          layerType,
+          coordinates,
+          properties: props as Record<string, unknown>,
+        });
+
+        // Prevent click from bubbling to map
+        e.originalEvent.stopPropagation();
+      });
     });
 
-    map.on('mouseleave', 'command-markers', () => {
-      map.getCanvas().style.cursor = '';
+    // Change cursor on hoverable features
+    interactiveLayers.forEach((layerId) => {
+      map.on('mouseenter', layerId, () => {
+        map.getCanvas().style.cursor = 'pointer';
+      });
+
+      map.on('mouseleave', layerId, () => {
+        map.getCanvas().style.cursor = '';
+      });
     });
 
     mapRef.current = map;

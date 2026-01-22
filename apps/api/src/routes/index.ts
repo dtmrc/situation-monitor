@@ -4,6 +4,7 @@ import { assessmentRoutes } from './assessments';
 import { auth } from './auth';
 import { feedRoutes } from './feeds';
 import { health } from './health';
+import { mapRoutes } from './map';
 import { orgRoutes } from './organizations';
 import { pmesiiRoutes } from './pmesii';
 import { projectRoutes } from './projects';
@@ -20,6 +21,7 @@ v1.route('/', assessmentRoutes); // Nested under projects for list, flat for sin
 v1.route('/', pmesiiRoutes); // Factor routes
 v1.route('/organizations', orgRoutes);
 v1.route('/feeds', feedRoutes); // Feed management routes
+v1.route('/map', mapRoutes); // Map viewport data routes
 
 // Main router with versioning
 const routes = new Hono();

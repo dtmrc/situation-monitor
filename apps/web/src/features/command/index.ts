@@ -12,6 +12,8 @@ export {
 
 // Components
 export { CommandMap } from './components/CommandMap';
+export type { MapFeatureClickEvent } from './components/CommandMap';
+export { FeatureDetailPopup } from './components/FeatureDetailPopup';
 export { MapOverlay } from './components/MapOverlay';
 export { MapStatusBar } from './components/MapStatusBar';
 
@@ -35,3 +37,4 @@ export { QuickFiltersPanel } from './panels/QuickFiltersPanel';
 
 // Hooks
 export { useWebSocketFeed, useMockDataFeed } from './hooks/useWebSocketFeed';
+export { useViewportData } from './hooks/useViewportData';

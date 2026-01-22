@@ -253,6 +253,32 @@ export interface QuickFilters {
 }
 
 /** ═══════════════════════════════════════════════════════════════════════════
+ *  VIEWPORT DATA
+ *  ═══════════════════════════════════════════════════════════════════════════ */
+
+export interface ViewportBounds {
+  west: number;
+  south: number;
+  east: number;
+  north: number;
+}
+
+export interface ViewportDataMeta {
+  total: number;
+  truncated: boolean;
+  bbox: ViewportBounds;
+  zoom: number;
+  fetchedAt: string;
+}
+
+export interface ViewportDataResponse {
+  markers: MapMarker[];
+  tracks: Track[];
+  alerts: Alert[];
+  meta: ViewportDataMeta;
+}
+
+/** ═══════════════════════════════════════════════════════════════════════════
  *  SITUATION OVERVIEW
  *  ═══════════════════════════════════════════════════════════════════════════ */
 

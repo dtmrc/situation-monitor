@@ -12,6 +12,7 @@ import {
   type SeverityLevel,
   type SituationOverview,
   type Track,
+  type ViewportBounds,
   type ViewState,
 } from '../types';
 
@@ -24,6 +25,7 @@ interface MapStoreState {
   viewState: ViewState;
   cursor: MapCursor | null;
   selectedMarkerId: string | null;
+  viewportBounds: ViewportBounds | null;
 
   // Layer management
   layers: LayerConfig[];
@@ -47,6 +49,7 @@ interface MapStoreState {
   setViewState: (viewState: Partial<ViewState>) => void;
   setCursor: (cursor: MapCursor | null) => void;
   setSelectedMarkerId: (id: string | null) => void;
+  setViewportBounds: (bounds: ViewportBounds) => void;
   flyTo: (center: [number, number], zoom?: number) => void;
 
   // Actions - Layers
@@ -116,6 +119,7 @@ export const useMapStore = create<MapStoreState>()(
     viewState: DEFAULT_VIEW_STATE,
     cursor: null,
     selectedMarkerId: null,
+    viewportBounds: null,
     layers: DEFAULT_LAYERS,
     markers: [],
     alerts: [],
@@ -134,6 +138,8 @@ export const useMapStore = create<MapStoreState>()(
     setCursor: (cursor) => set({ cursor }),
 
     setSelectedMarkerId: (id) => set({ selectedMarkerId: id }),
+
+    setViewportBounds: (bounds) => set({ viewportBounds: bounds }),
 
     flyTo: (center, zoom) =>
       set((state) => ({

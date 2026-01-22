@@ -1,11 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router';
 import type mapboxgl from 'mapbox-gl';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   addMapLayers,
   AlertFeedPanel,
   CommandMap,
+  FeatureDetailPopup,
   LayerControlPanel,
   MapOverlay,
   MapStatusBar,
@@ -18,7 +19,9 @@ import {
   updateTracksData,
   useMockDataFeed,
   useMapStore,
+  useViewportData,
 } from '@/features/command';
+import type { MapFeatureClickEvent, ViewportBounds } from '@/features/command';
 import { useUserLocation } from '@/hooks/useUserLocation';
 
 export const Route = createFileRoute('/_app/command')({
@@ -29,9 +32,63 @@ function CommandCenterPage() {
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const layersInitialized = useRef(false);
   const initialLocationSet = useRef(false);
+  const [currentZoom, setCurrentZoom] = useState(5);
+  const [selectedFeature, setSelectedFeature] = useState<MapFeatureClickEvent | null>(null);
 
-  const { layers, markers, alerts, tracks, flyTo } = useMapStore();
+  const { layers, markers, alerts, tracks, flyTo, acknowledgeAlert } = useMapStore();
   const { location, isLoading: locationLoading } = useUserLocation();
+
+  // For demo: using mock project ID - replace with actual project selection
+  const projectId = 'demo-project-id';
+
+  // Viewport-based data fetching with debouncing
+  const { data: viewportData, updateBounds } = useViewportData({
+    projectId,
+    zoom: currentZoom,
+    enabled: true, // Set to true when you have a real API
+  });
+
+  // Update store with viewport data when it changes
+  useEffect(() => {
+    if (viewportData) {
+      // Merge viewport data with existing data (WebSocket real-time updates take precedence)
+      // For now, we'll just log when viewport data arrives - in production you'd merge intelligently
+      console.log('[Viewport] Received data:', {
+        markers: viewportData.markers.length,
+        tracks: viewportData.tracks.length,
+        alerts: viewportData.alerts.length,
+        meta: viewportData.meta,
+      });
+    }
+  }, [viewportData]);
+
+  // Handle bounds changes from the map
+  const handleBoundsChange = useCallback(
+    (bounds: ViewportBounds, zoom: number) => {
+      setCurrentZoom(zoom);
+      updateBounds(bounds);
+    },
+    [updateBounds]
+  );
+
+  // Handle feature click on map
+  const handleFeatureClick = useCallback((event: MapFeatureClickEvent) => {
+    setSelectedFeature(event);
+  }, []);
+
+  // Handle popup close
+  const handlePopupClose = useCallback(() => {
+    setSelectedFeature(null);
+  }, []);
+
+  // Handle alert acknowledgment
+  const handleAcknowledge = useCallback(
+    (featureId: string) => {
+      acknowledgeAlert(featureId);
+      setSelectedFeature(null);
+    },
+    [acknowledgeAlert]
+  );
 
   // Use mock data for demo (replace with useWebSocketFeed in production)
   useMockDataFeed();
@@ -98,10 +155,21 @@ function CommandCenterPage() {
       {/* Full-screen map container - uses negative margins to fill AppShell padding */}
       <div className="fixed inset-0 z-10">
         {/* Mapbox GL Map */}
-        <CommandMap onMapLoad={handleMapLoad} />
+        <CommandMap
+          onMapLoad={handleMapLoad}
+          onBoundsChange={handleBoundsChange}
+          onFeatureClick={handleFeatureClick}
+        />
 
         {/* Tactical overlay effects */}
         <MapOverlay scanlines={true} vignette={true} noise={false} />
+
+        {/* Feature detail popup */}
+        <FeatureDetailPopup
+          feature={selectedFeature}
+          onClose={handlePopupClose}
+          onAcknowledge={handleAcknowledge}
+        />
 
         {/* Floating panels */}
         <LayerControlPanel />
