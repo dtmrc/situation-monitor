@@ -15,9 +15,11 @@ import {
   SituationOverviewPanel,
   updateAlertsData,
   updateMarkersData,
+  updateTracksData,
   useMockDataFeed,
   useMapStore,
 } from '@/features/command';
+import { useUserLocation } from '@/hooks/useUserLocation';
 
 export const Route = createFileRoute('/_app/command')({
   component: CommandCenterPage,
@@ -26,11 +28,22 @@ export const Route = createFileRoute('/_app/command')({
 function CommandCenterPage() {
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const layersInitialized = useRef(false);
+  const initialLocationSet = useRef(false);
 
-  const { layers, markers, alerts } = useMapStore();
+  const { layers, markers, alerts, tracks, flyTo } = useMapStore();
+  const { location, isLoading: locationLoading } = useUserLocation();
 
   // Use mock data for demo (replace with useWebSocketFeed in production)
   useMockDataFeed();
+
+  // Center map on user's location when available
+  useEffect(() => {
+    if (!locationLoading && location && !initialLocationSet.current) {
+      // Fly to user's location with a reasonable zoom level
+      flyTo([location.longitude, location.latitude], 8);
+      initialLocationSet.current = true;
+    }
+  }, [location, locationLoading, flyTo]);
 
   // Handle map load - add custom layers
   const handleMapLoad = useCallback((map: mapboxgl.Map) => {
@@ -65,6 +78,20 @@ function CommandCenterPage() {
     if (!mapRef.current || !layersInitialized.current) return;
     updateAlertsData(mapRef.current, alerts);
   }, [alerts]);
+
+  // Update flight track data when tracks change
+  useEffect(() => {
+    if (!mapRef.current || !layersInitialized.current) return;
+    const flightTracks = tracks.filter((t) => t.type === 'flight');
+    updateTracksData(mapRef.current, flightTracks, 'flight');
+  }, [tracks]);
+
+  // Update maritime track data when tracks change
+  useEffect(() => {
+    if (!mapRef.current || !layersInitialized.current) return;
+    const maritimeTracks = tracks.filter((t) => t.type === 'maritime');
+    updateTracksData(mapRef.current, maritimeTracks, 'maritime');
+  }, [tracks]);
 
   return (
     <>

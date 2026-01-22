@@ -6,6 +6,7 @@ import type {
   AlertPayload,
   MapMarker,
   MarkerUpdatePayload,
+  Track,
   TrackUpdatePayload,
   WsMessage,
 } from '../types';
@@ -235,10 +236,13 @@ export function useWebSocketFeed(options: UseWebSocketFeedOptions = {}) {
 
 /**
  * Mock data generator for testing without a backend
- * Generates random markers and alerts
+ * Generates random markers, alerts, and flight tracks
  */
 export function useMockDataFeed() {
-  const { addMarker, addAlert, setOverview } = useMapStore();
+  const addMarker = useMapStore((state) => state.addMarker);
+  const addAlert = useMapStore((state) => state.addAlert);
+  const setOverview = useMapStore((state) => state.setOverview);
+  const setTracks = useMapStore((state) => state.setTracks);
 
   useEffect(() => {
     // Set initial overview data
@@ -279,6 +283,104 @@ export function useMockDataFeed() {
 
     initialMarkers.forEach(addMarker);
 
+    // Generate initial mock flight tracks
+    const mockFlights: Track[] = [
+      {
+        id: 'flight-1',
+        type: 'flight',
+        callsign: 'UAL123',
+        coordinates: [-77.5, 38.9] as [number, number],
+        heading: 45,
+        speed: 450,
+        altitude: 35000,
+        origin: 'IAD',
+        destination: 'JFK',
+        status: 'active',
+        lastUpdate: new Date().toISOString(),
+      },
+      {
+        id: 'flight-2',
+        type: 'flight',
+        callsign: 'AAL456',
+        coordinates: [-76.8, 39.2] as [number, number],
+        heading: 270,
+        speed: 380,
+        altitude: 28000,
+        origin: 'PHL',
+        destination: 'DCA',
+        status: 'active',
+        lastUpdate: new Date().toISOString(),
+      },
+      {
+        id: 'flight-3',
+        type: 'flight',
+        callsign: 'DAL789',
+        coordinates: [-78.2, 38.5] as [number, number],
+        heading: 180,
+        speed: 420,
+        altitude: 32000,
+        origin: 'ATL',
+        destination: 'BOS',
+        status: 'active',
+        lastUpdate: new Date().toISOString(),
+      },
+      {
+        id: 'flight-4',
+        type: 'flight',
+        callsign: 'SWA321',
+        coordinates: [-77.0, 38.2] as [number, number],
+        heading: 90,
+        speed: 390,
+        altitude: 25000,
+        origin: 'BWI',
+        destination: 'MIA',
+        status: 'active',
+        lastUpdate: new Date().toISOString(),
+      },
+      {
+        id: 'flight-5',
+        type: 'flight',
+        callsign: 'JBU654',
+        coordinates: [-76.2, 39.8] as [number, number],
+        heading: 315,
+        speed: 410,
+        altitude: 31000,
+        origin: 'EWR',
+        destination: 'LAX',
+        status: 'active',
+        lastUpdate: new Date().toISOString(),
+      },
+    ];
+
+    setTracks(mockFlights);
+
+    // Simulate flight movement every 5 seconds
+    const flightInterval = setInterval(() => {
+      // Get current tracks directly from store to avoid stale closure
+      const currentTracks = useMapStore.getState().tracks;
+      setTracks(
+        currentTracks.map((track) => {
+          if (track.type !== 'flight') return track;
+
+          // Calculate movement based on heading and speed
+          const headingRad = (track.heading * Math.PI) / 180;
+          const speedFactor = 0.002; // Approx movement per update
+          const [lng, lat] = track.coordinates as [number, number];
+
+          return {
+            ...track,
+            coordinates: [
+              lng + Math.sin(headingRad) * speedFactor,
+              lat + Math.cos(headingRad) * speedFactor,
+            ] as [number, number],
+            // Slight heading variation
+            heading: track.heading + (Math.random() - 0.5) * 2,
+            lastUpdate: new Date().toISOString(),
+          };
+        })
+      );
+    }, 5000);
+
     // Simulate periodic alerts
     const alertInterval = setInterval(() => {
       const randomAlert: Alert = {
@@ -287,10 +389,10 @@ export function useMockDataFeed() {
         severity: Math.random() > 0.7 ? 'critical' : 'medium',
         title: `Alert ${Math.floor(Math.random() * 100)}`,
         message: 'Automated alert from monitoring system',
-        coordinates: [
-          2.3522 + (Math.random() - 0.5) * 0.1,
-          48.8566 + (Math.random() - 0.5) * 0.1,
-        ] as [number, number],
+        coordinates: [-77.0 + (Math.random() - 0.5) * 2, 38.9 + (Math.random() - 0.5) * 2] as [
+          number,
+          number,
+        ],
         timestamp: new Date().toISOString(),
         acknowledged: false,
       };
@@ -299,7 +401,8 @@ export function useMockDataFeed() {
     }, 30000); // Every 30 seconds
 
     return () => {
+      clearInterval(flightInterval);
       clearInterval(alertInterval);
     };
-  }, [addMarker, addAlert, setOverview]);
+  }, [addMarker, addAlert, setOverview, setTracks]);
 }
