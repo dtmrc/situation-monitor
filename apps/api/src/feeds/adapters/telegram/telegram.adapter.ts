@@ -21,7 +21,6 @@ import {
   type FeedSeverity,
 } from '../../adapter.interface';
 import type {
-  TelegramMessage,
   TelegramEntity,
   TelegramMedia,
   TelegramForwardInfo,
@@ -125,10 +124,7 @@ export class TelegramAdapter extends BaseFeedAdapter {
     const configFilters = config.filters as Record<string, unknown>;
 
     // Get channels to monitor
-    const channels =
-      options?.channels ||
-      (configFilters?.channels as string[]) ||
-      [];
+    const channels = options?.channels || (configFilters?.channels as string[]) || [];
 
     if (!channels || channels.length === 0) {
       return {
@@ -177,7 +173,10 @@ export class TelegramAdapter extends BaseFeedAdapter {
           continue;
         }
 
-        const channelInfo = this.extractChannelInfo(entity as Api.Chat | Api.Channel | Api.User, channel);
+        const channelInfo = this.extractChannelInfo(
+          entity as Api.Chat | Api.Channel | Api.User,
+          channel
+        );
 
         // Get last message ID for incremental fetch
         const lastMessageId = this.lastMessageIds.get(channelInfo.telegramId);
@@ -229,13 +228,17 @@ export class TelegramAdapter extends BaseFeedAdapter {
   /**
    * Extract channel info from entity
    */
-  private extractChannelInfo(entity: Api.Chat | Api.Channel | Api.User, fallbackUsername: string): ChannelInfo {
+  private extractChannelInfo(
+    entity: Api.Chat | Api.Channel | Api.User,
+    fallbackUsername: string
+  ): ChannelInfo {
     const id = 'id' in entity ? entity.id.toString() : '';
     const username =
-      'username' in entity && entity.username ? entity.username : fallbackUsername.replace(/^@/, '');
+      'username' in entity && entity.username
+        ? entity.username
+        : fallbackUsername.replace(/^@/, '');
     const title = 'title' in entity && entity.title ? entity.title : `@${username}`;
-    const participantsCount =
-      'participantsCount' in entity ? entity.participantsCount : undefined;
+    const participantsCount = 'participantsCount' in entity ? entity.participantsCount : undefined;
 
     return {
       telegramId: id,
@@ -344,9 +347,10 @@ export class TelegramAdapter extends BaseFeedAdapter {
     if (message.media instanceof Api.MessageMediaPhoto) {
       media.push({
         type: 'photo',
-        fileId: message.media.photo && 'id' in message.media.photo
-          ? message.media.photo.id.toString()
-          : undefined,
+        fileId:
+          message.media.photo && 'id' in message.media.photo
+            ? message.media.photo.id.toString()
+            : undefined,
       });
     } else if (message.media instanceof Api.MessageMediaDocument) {
       const doc = message.media.document;
@@ -366,19 +370,22 @@ export class TelegramAdapter extends BaseFeedAdapter {
 
         // Check for voice/video note
         const audioAttr = doc.attributes?.find(
-          (a: Api.TypeDocumentAttribute) => a instanceof Api.DocumentAttributeAudio
-        ) as Api.DocumentAttributeAudio | undefined;
+          (a: Api.TypeDocumentAttribute): a is Api.DocumentAttributeAudio =>
+            a instanceof Api.DocumentAttributeAudio
+        );
         if (audioAttr?.voice) type = 'voice';
 
         // Get dimensions
         const videoAttr = doc.attributes?.find(
-          (a: Api.TypeDocumentAttribute) => a instanceof Api.DocumentAttributeVideo
-        ) as Api.DocumentAttributeVideo | undefined;
+          (a: Api.TypeDocumentAttribute): a is Api.DocumentAttributeVideo =>
+            a instanceof Api.DocumentAttributeVideo
+        );
 
         // Get filename
         const filenameAttr = doc.attributes?.find(
-          (a: Api.TypeDocumentAttribute) => a instanceof Api.DocumentAttributeFilename
-        ) as Api.DocumentAttributeFilename | undefined;
+          (a: Api.TypeDocumentAttribute): a is Api.DocumentAttributeFilename =>
+            a instanceof Api.DocumentAttributeFilename
+        );
 
         media.push({
           type,
@@ -413,9 +420,7 @@ export class TelegramAdapter extends BaseFeedAdapter {
             : undefined
         : undefined,
       fromChannelId:
-        fwd.fromId && 'channelId' in fwd.fromId
-          ? fwd.fromId.channelId.toString()
-          : undefined,
+        fwd.fromId && 'channelId' in fwd.fromId ? fwd.fromId.channelId.toString() : undefined,
       fromName: fwd.fromName,
       fromMessageId: fwd.channelPost,
       date: fwd.date ? new Date(fwd.date * 1000) : undefined,
@@ -445,10 +450,7 @@ export class TelegramAdapter extends BaseFeedAdapter {
     if (!message.reactions?.results) return undefined;
 
     return message.reactions.results.map((r: Api.ReactionCount) => ({
-      reaction:
-        r.reaction instanceof Api.ReactionEmoji
-          ? r.reaction.emoticon
-          : 'custom',
+      reaction: r.reaction instanceof Api.ReactionEmoji ? r.reaction.emoticon : 'custom',
       count: r.count,
     }));
   }
@@ -519,10 +521,7 @@ export class TelegramAdapter extends BaseFeedAdapter {
     const items: NormalizedFeedItem[] = [];
     const errors: string[] = [];
 
-    const rssBridges = [
-      'https://rsshub.app/telegram/channel/',
-      'https://tg.i-c-a.su/rss/',
-    ];
+    const rssBridges = ['https://rsshub.app/telegram/channel/', 'https://tg.i-c-a.su/rss/'];
 
     for (const channel of channels) {
       const cleanChannel = channel.replace(/^@/, '');

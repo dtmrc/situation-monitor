@@ -14,23 +14,21 @@ import { Worker, Queue, type Job } from 'bullmq';
 import { eq, and } from 'drizzle-orm';
 
 import { db } from '../../db';
-import {
-  telegramMessages,
-  type TelegramMessageInsert,
-} from '../../db/schema/telegram';
 import { feedConfigs } from '../../db/schema/feeds';
+import { telegramMessages, type TelegramMessageInsert } from '../../db/schema/telegram';
 import { TelegramAdapter } from '../../feeds/adapters/telegram';
 import {
   telegramTranslator,
   telegramChannelManager,
+  extractEntities,
+  analyzeSentiment,
 } from '../../feeds/services';
-import { extractEntities, analyzeSentiment } from '../../feeds/services';
-import { createWorkerConnection, tripwireCheckQueue } from '../queues';
 import type {
   TelegramJobData,
   TelegramJobResult,
   TelegramFeedConfig,
 } from '../../feeds/types/telegram.types';
+import { createWorkerConnection, tripwireCheckQueue } from '../queues';
 
 // Worker configuration
 const WORKER_CONCURRENCY = 1; // Single job at a time for rate limiting
@@ -147,7 +145,7 @@ export function createTelegramWorker(): Worker<TelegramJobData, TelegramJobResul
             // Process and store each message
             for (const item of fetchResult.items) {
               try {
-                const metadata = item.metadata as Record<string, unknown>;
+                const metadata = item.metadata ?? {};
                 const messageId = metadata.messageId as number;
 
                 // Check if message already exists
@@ -218,7 +216,9 @@ export function createTelegramWorker(): Worker<TelegramJobData, TelegramJobResul
                   translationProvider,
                   targetLanguage: translatedText ? 'en' : undefined,
                   entities: metadata.entities || [],
-                  media: metadata.hasMedia ? (metadata.mediaTypes as string[]).map((t) => ({ type: t })) : [],
+                  media: metadata.hasMedia
+                    ? (metadata.mediaTypes as string[]).map((t) => ({ type: t }))
+                    : [],
                   forwardedFrom: metadata.forwardedFrom as Record<string, unknown> | undefined,
                   replyTo: metadata.replyTo as Record<string, unknown> | undefined,
                   views: metadata.views as number | undefined,
@@ -243,7 +243,9 @@ export function createTelegramWorker(): Worker<TelegramJobData, TelegramJobResul
 
                 // Queue for tripwire processing
                 if (inserted) {
-                  const locations = extractedEntities?.locations as Array<{ coordinates?: { lat: number; lng: number } }> | undefined;
+                  const locations = extractedEntities?.locations as
+                    | Array<{ coordinates?: { lat: number; lng: number } }>
+                    | undefined;
                   const coords = locations?.[0];
 
                   await tripwireCheckQueue.add(
