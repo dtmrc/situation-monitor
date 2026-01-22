@@ -9,11 +9,16 @@ import { registerAdapter } from '../normalizer.service';
 
 import { aisAdapter } from './ais.adapter';
 import { civilUnrestAdapter } from './civil-unrest.adapter';
+import { citizenAdapter } from './crowdsourced/citizen.adapter';
 import { fireAdapter } from './fire.adapter';
 import { flightAdapter } from './flight.adapter';
+import { firmsInfrastructureAdapter } from './infrastructure/firms.adapter';
+import { nrcAdapter } from './infrastructure/nrc.adapter';
+import { powerOutageAdapter } from './infrastructure/power-outage.adapter';
 import { maritimeAdapter } from './maritime.adapter';
 import { newsAdapter } from './news.adapter';
 import { telegramAdapter } from './telegram.adapter';
+import { dotCameraAdapter } from './traffic/dot-camera.adapter';
 
 // Export all adapters
 export { newsAdapter } from './news.adapter';
@@ -36,6 +41,18 @@ export {
 export { acledAdapter, ACLEDAdapter } from './unrest/acled.adapter';
 export { gdeltEventsAdapter, GDELTEventsAdapter } from './unrest/gdelt-events.adapter';
 
+// Export infrastructure adapters
+export {
+  FIRMSInfrastructureAdapter,
+  firmsInfrastructureAdapter,
+  NRCAdapter,
+  nrcAdapter,
+  PowerOutageAdapter,
+  powerOutageAdapter,
+} from './infrastructure';
+export { DOTCameraAdapter, dotCameraAdapter } from './traffic';
+export { CitizenAdapter, citizenAdapter } from './crowdsourced';
+
 // All available adapters
 export const allAdapters = [
   newsAdapter,
@@ -45,6 +62,12 @@ export const allAdapters = [
   aisAdapter,
   fireAdapter,
   telegramAdapter,
+  // Infrastructure adapters
+  firmsInfrastructureAdapter,
+  nrcAdapter,
+  powerOutageAdapter,
+  dotCameraAdapter,
+  citizenAdapter,
 ];
 
 /**

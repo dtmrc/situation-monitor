@@ -17,7 +17,12 @@ export type FeedType =
   | 'civil_unrest'
   | 'fire'
   | 'telegram'
-  | 'custom';
+  | 'custom'
+  // Critical infrastructure types
+  | 'infrastructure'
+  | 'satellite_fire'
+  | 'traffic_camera'
+  | 'citizen_report';
 
 // Severity levels for feed items
 export type FeedSeverity = 'info' | 'low' | 'medium' | 'high' | 'critical';

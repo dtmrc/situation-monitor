@@ -32,7 +32,19 @@ import type { AppEnv } from '../types';
 const createFeedSchema = z.object({
   projectId: z.string().uuid(),
   name: z.string().min(1).max(100),
-  type: z.enum(['news', 'flight', 'maritime', 'civil_unrest', 'fire', 'telegram', 'custom']),
+  type: z.enum([
+    'news',
+    'flight',
+    'maritime',
+    'civil_unrest',
+    'fire',
+    'telegram',
+    'custom',
+    'infrastructure',
+    'satellite_fire',
+    'traffic_camera',
+    'citizen_report',
+  ]),
   enabled: z.boolean().default(true),
   pollInterval: z.number().int().min(5000).max(86400000).default(60000),
   apiKey: z.string().optional(),
@@ -54,7 +66,19 @@ const updateFeedSchema = z.object({
 const feedItemsQuerySchema = offsetPaginationSchema.extend({
   feedConfigId: z.string().uuid().optional(),
   type: z
-    .enum(['news', 'flight', 'maritime', 'civil_unrest', 'fire', 'telegram', 'custom'])
+    .enum([
+      'news',
+      'flight',
+      'maritime',
+      'civil_unrest',
+      'fire',
+      'telegram',
+      'custom',
+      'infrastructure',
+      'satellite_fire',
+      'traffic_camera',
+      'citizen_report',
+    ])
     .optional(),
   severity: z.enum(['info', 'low', 'medium', 'high', 'critical']).optional(),
   since: z.string().datetime().optional(),

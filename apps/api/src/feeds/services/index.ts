@@ -54,3 +54,21 @@ export {
 
 // Civil unrest aggregation
 export { CivilUnrestAggregator, civilUnrestAggregator } from './civil-unrest-aggregator';
+
+// Critical infrastructure services
+export {
+  FacilityDatabaseService,
+  facilityDatabase,
+  type NearbyFacility,
+  type SectorStats,
+} from './facility-database';
+
+export { IncidentCorrelator, incidentCorrelator } from './incident-correlator';
+
+export {
+  InfrastructureProcessor,
+  infrastructureProcessor,
+  createInfrastructureJob,
+  type ProcessingResult,
+  type BatchProcessingResult,
+} from './infrastructure-processor';

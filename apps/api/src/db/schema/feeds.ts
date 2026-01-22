@@ -102,6 +102,11 @@ export const feedTypeEnum = pgEnum('feed_type', [
   'fire',
   'telegram',
   'custom',
+  // Critical infrastructure types
+  'infrastructure',
+  'satellite_fire',
+  'traffic_camera',
+  'citizen_report',
 ]);
 
 // TypeScript type for feed type

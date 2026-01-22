@@ -37,3 +37,6 @@ export * from './audit';
 
 // Feeds
 export * from './feeds';
+
+// Critical Infrastructure
+export * from './infrastructure';
