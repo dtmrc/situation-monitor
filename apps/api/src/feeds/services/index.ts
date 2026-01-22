@@ -72,3 +72,20 @@ export {
   type ProcessingResult,
   type BatchProcessingResult,
 } from './infrastructure-processor';
+
+// Telegram OSINT services
+export {
+  TelegramTranslator,
+  telegramTranslator,
+  type TranslationProvider,
+  type TranslatorConfig,
+} from './telegram-translator';
+
+export {
+  TelegramChannelManager,
+  telegramChannelManager,
+  type AddChannelOptions,
+  type UpdateChannelOptions,
+  type ChannelQueryOptions,
+  type ChannelWithStats,
+} from './telegram-channel-manager';

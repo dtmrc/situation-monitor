@@ -17,7 +17,7 @@ import { nrcAdapter } from './infrastructure/nrc.adapter';
 import { powerOutageAdapter } from './infrastructure/power-outage.adapter';
 import { maritimeAdapter } from './maritime.adapter';
 import { newsAdapter } from './news.adapter';
-import { telegramAdapter } from './telegram.adapter';
+import { telegramAdapter } from './telegram';
 import { dotCameraAdapter } from './traffic/dot-camera.adapter';
 
 // Export all adapters
@@ -26,7 +26,7 @@ export { civilUnrestAdapter } from './civil-unrest.adapter';
 export { flightAdapter } from './flight.adapter';
 export { maritimeAdapter } from './maritime.adapter';
 export { fireAdapter } from './fire.adapter';
-export { telegramAdapter } from './telegram.adapter';
+export { telegramAdapter, TelegramAdapter } from './telegram';
 export {
   aisAdapter,
   AisAdapter,

@@ -38,5 +38,8 @@ export * from './audit';
 // Feeds
 export * from './feeds';
 
+// Telegram OSINT
+export * from './telegram';
+
 // Critical Infrastructure
 export * from './infrastructure';
